@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using DSharpPlus.Entities;
 using DSharpPlus.EventArgs;
@@ -65,10 +66,22 @@ namespace DSharpPlus.SlashCommands
 						$"{e.Interaction.Data.Options?.First().Name} {e.Interaction.Data.Options?.First().Options.First().Name}",
 					_ => string.Empty
 				};
-				
-				_client.Logger.LogInformation($"[{e.Interaction.Data.Id}] ({_commands[e.Interaction.Data.Id]}): {method}");
+
+				IEnumerable<object> options =
+					await ParseOptions(_commands[e.Interaction.Data.Id].Methods[method],
+						e.Interaction.Data.Options?.First().Type switch
+						{
+							ApplicationCommandOptionType.SubCommand => e.Interaction.Data.Options?.First().Options,
+							ApplicationCommandOptionType.SubCommandGroup => e.Interaction.Data.Options?.First().Options
+								.First().Options,
+							_ => e.Interaction.Data.Options
+						} ?? Array.Empty<DiscordInteractionDataOption>());
+				// SORRY
+
+				string opts = string.Join("\n", options);
+				Console.WriteLine(opts);
 				await e.Interaction.CreateResponseAsync(InteractionResponseType.ChannelMessageWithSource, new DiscordInteractionResponseBuilder()
-					.WithContent($"[{e.Interaction.Id}] ({_commands[e.Interaction.Id]}): {method}"));
+					.WithContent($"[{e.Interaction.Id}]: {method}\n{opts}"));
 			});
 			return Task.CompletedTask;
 		}
@@ -82,9 +95,22 @@ namespace DSharpPlus.SlashCommands
 
 				_client.Logger.LogInformation($"[{e.Interaction.Data.Id}] ({_commands[e.Interaction.Data.Id]}): {method}\nUser: {e.TargetUser}\nMessage: {e.TargetMessage}");
 				await e.Interaction.CreateResponseAsync(InteractionResponseType.ChannelMessageWithSource, new DiscordInteractionResponseBuilder()
-					.WithContent($"[{e.Interaction.Id}] ({_commands[e.Interaction.Id]}): {method}"));
+					.WithContent($"[{e.Interaction.Id}]: {method}\nUser: {e.TargetUser}\nMessage: {e.TargetMessage}"));
 			});
 			return Task.CompletedTask;
+		}
+
+		private async Task<IEnumerable<object>> ParseOptions(MethodInfo info, IEnumerable<DiscordInteractionDataOption> options)
+		{
+			List<object> objects = new();
+			
+			
+			foreach (DiscordInteractionDataOption option in options)
+			{
+				objects.Add($"{option.Type}: {option.Value}");
+			}
+			
+			return objects;
 		}
 	}
 }

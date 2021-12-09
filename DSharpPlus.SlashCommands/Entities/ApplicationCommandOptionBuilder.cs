@@ -15,8 +15,8 @@ namespace DSharpPlus.SlashCommands.Entities
 		public List<DiscordApplicationCommandOptionChoice> Choices { get; private set; }
 		public List<ApplicationCommandOptionBuilder> Options { get; private set; }
 		public ChannelType[] ChannelType { get; private set; }
-		public long MinValue { get; private set; }
-		public long MaxValue { get; private set; }
+		public long? MinValue { get; private set; }
+		public long? MaxValue { get; private set; }
 		public MethodInfo AutoCompleteMethod { get; private set; }
 		public MethodInfo Method { get; private set; }
 
