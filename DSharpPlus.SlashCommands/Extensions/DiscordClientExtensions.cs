@@ -1,4 +1,4 @@
-namespace DSharpPlus.SlashCommands.Extensions
+namespace DSharpPlus.SlashCommands
 {
 	public static class DiscordClientExtensions
 	{
