@@ -1,0 +1,22 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DSharpPlus.SlashCommands", "DSharpPlus.SlashCommands\DSharpPlus.SlashCommands.csproj", "{8CD51579-D562-4A54-BD65-932136413718}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DSharpPlus.SlashCommands.TestBot", "DSharpPlus.SlashCommands.TestBot\DSharpPlus.SlashCommands.TestBot.csproj", "{F981B673-82D8-4B31-AAF7-0CD5E7433094}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{8CD51579-D562-4A54-BD65-932136413718}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8CD51579-D562-4A54-BD65-932136413718}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8CD51579-D562-4A54-BD65-932136413718}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8CD51579-D562-4A54-BD65-932136413718}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F981B673-82D8-4B31-AAF7-0CD5E7433094}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F981B673-82D8-4B31-AAF7-0CD5E7433094}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F981B673-82D8-4B31-AAF7-0CD5E7433094}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F981B673-82D8-4B31-AAF7-0CD5E7433094}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
