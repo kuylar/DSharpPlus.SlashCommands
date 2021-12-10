@@ -80,7 +80,7 @@ namespace DSharpPlus.SlashCommands.Entities
 			return this;
 		}
 
-		public ApplicationCommandOptionBuilder WithMinMaxValue(long min, long max)
+		public ApplicationCommandOptionBuilder WithMinMaxValue(long? min, long? max)
 		{
 			if (Type is not (ApplicationCommandOptionType.Integer or ApplicationCommandOptionType.Number))
 				throw new InvalidOperationException(

@@ -87,7 +87,28 @@ namespace DSharpPlus.SlashCommands
 						.WithDescription(optionAttr?.Description)
 						.IsRequired(!parameterInfo.IsOptional);
 
-					//TODO: other attributes
+					foreach (Attribute attribute in parameterInfo.GetCustomAttributes())
+					{
+						switch (attribute)
+						{
+							case AutocompleteAttribute autocomplete:
+								option.WithAutocomplete(autocomplete.Provider.GetMethod("Provider"));
+								// this is stupid, fix later
+								break;
+							case ChannelTypesAttribute cType:
+								option.WithChannelTypes(cType.ChannelTypes.ToArray());
+								break;
+							case ChoiceAttribute choice:
+								option.AddChoice(choice.Name, choice.Value);
+								break;
+							case MinimumAttribute min:
+								option.WithMinMaxValue((long)min.Value, option.MaxValue);
+								break;
+							case MaximumAttribute max:
+								option.WithMinMaxValue(option.MinValue, (long)max.Value);
+								break;
+						}
+					}
 					command.AddOption(option);
 				}
 

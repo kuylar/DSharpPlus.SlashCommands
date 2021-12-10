@@ -85,5 +85,21 @@ namespace DSharpPlus.SlashCommands.TestBot
 			[Option("opt-number", "Optional number")]
 			double optional = double.MinValue) =>
 			await ctx.CreateResponseAsync($"Required: {required}\nOptional: {optional}");
+
+		[SlashCommand("attributes", "Test of all attributes")]
+		public async Task Attributes(InteractionContext ctx,
+			[Option("autocomplete", "Non-functional autocomplete")]
+			[Autocomplete(typeof(IAutocompleteProvider))]
+			string autocomplete,
+			[Option("vc", "Select a voice channel")]
+			[ChannelTypes(ChannelType.Voice)]
+			DiscordChannel channel,
+			[Option("choices", "You must select one from many")]
+			[Choice("I lied, there arent 'many', theres only one", "lol")]
+			string choice,
+			[Option("number", "Number between 10-15")]
+			[Minimum(10)] [Maximum(15)]
+			double number) =>
+			await ctx.CreateResponseAsync($"Autocomplete: {autocomplete}\nVoice channel: {channel.Mention}\nChoice: `{choice}`\nNumber: 9<{number}<16");
 	}
 }
