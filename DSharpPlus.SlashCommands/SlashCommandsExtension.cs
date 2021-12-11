@@ -270,10 +270,7 @@ namespace DSharpPlus.SlashCommands
 				string paramName = param.GetCustomAttribute<OptionAttribute>()?.Name;
 				DiscordInteractionDataOption option = options.FirstOrDefault(x => x.Name == paramName);
 
-				object value = await ConvertOptionToType(option, param.ParameterType, resolved);
-				
-				objects.Add(
-					$"<{param.ParameterType.Name}> {param.Name}: {value ?? param.DefaultValue ?? "`<NULL>`"}");
+				objects.Add(await ConvertOptionToType(option, param.ParameterType, resolved));
 			}
 			
 			return objects;
