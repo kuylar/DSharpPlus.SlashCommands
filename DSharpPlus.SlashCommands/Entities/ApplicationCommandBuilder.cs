@@ -22,7 +22,7 @@ namespace DSharpPlus.SlashCommands.Entities
 			Type = type;
 			if (type == ApplicationCommandType.SlashCommand) Options = new List<ApplicationCommandOptionBuilder>();
 		}
-		
+
 		public ApplicationCommandBuilder WithName(string name)
 		{
 			Name = name;

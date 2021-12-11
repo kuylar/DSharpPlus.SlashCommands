@@ -21,10 +21,10 @@ namespace DSharpPlus.SlashCommands
 
 		public SlashCommandsExtension(SlashCommandsConfiguration config = null)
 		{
-			if (config is null) config = new SlashCommandsConfiguration();
+			config ??= new SlashCommandsConfiguration();
 			_services = config.Services;
 		}
-		
+
 		protected internal override void Setup(DiscordClient client)
 		{
 			if (_client != null)
@@ -88,7 +88,8 @@ namespace DSharpPlus.SlashCommands
 					else if (parameterInfo.ParameterType == typeof(Enum))
 						throw new ArgumentException("Enums are not supported yet"); // todo
 					else
-						throw new ArgumentOutOfRangeException(nameof(parameterInfo.ParameterType), parameterInfo.ParameterType,
+						throw new ArgumentOutOfRangeException(nameof(parameterInfo.ParameterType),
+							parameterInfo.ParameterType,
 							"Slash command option types can be one of string, long, bool, double, DiscordUser, DiscordChannel, DiscordRole, SnowflakeObject, Enum");
 
 					ApplicationCommandOptionBuilder option = new ApplicationCommandOptionBuilder(type)
@@ -97,7 +98,6 @@ namespace DSharpPlus.SlashCommands
 						.IsRequired(!parameterInfo.IsOptional);
 
 					foreach (Attribute attribute in parameterInfo.GetCustomAttributes())
-					{
 						switch (attribute)
 						{
 							case AutocompleteAttribute autocomplete:
@@ -117,13 +117,13 @@ namespace DSharpPlus.SlashCommands
 								option.WithMinMaxValue(option.MinValue, (long)max.Value);
 								break;
 						}
-					}
+
 					command.AddOption(option);
 				}
 
 				RegisterCommand(command, guildId);
 			}
-			
+
 			// context menus
 			foreach (MethodInfo method in typeof(T).GetMethods()
 				.Where(x => x.GetCustomAttribute<ContextMenuAttribute>() != null))
@@ -137,7 +137,8 @@ namespace DSharpPlus.SlashCommands
 					.WithDefaultPermission(attr.DefaultPermission)
 					.WithMethod(method);
 
-				if (method.GetParameters().Length == 1 && method.GetParameters()[0].ParameterType != typeof(ContextMenuContext))
+				if (method.GetParameters().Length == 1 &&
+				    method.GetParameters()[0].ParameterType != typeof(ContextMenuContext))
 					throw new ArgumentException("The only argument on context menus must be a ContextMenuContext");
 
 				RegisterCommand(command, guildId);
@@ -166,7 +167,9 @@ namespace DSharpPlus.SlashCommands
 			foreach (DiscordApplicationCommand dac in dcCommands)
 				_commands.Add(dac.Id, new ApplicationCommand(commands.First(x => x.Name == dac.Name), args.Guild.Id));
 		}
-		
+
+		// ReSharper disable AssignNullToNotNullAttribute
+		// ReSharper disable PossibleNullReferenceException
 		private Task HandleSlashCommand(DiscordClient sender, InteractionCreateEventArgs e)
 		{
 			if (e.Interaction.Type != InteractionType.ApplicationCommand) return Task.CompletedTask;
@@ -179,7 +182,7 @@ namespace DSharpPlus.SlashCommands
 						$"{e.Interaction.Data.Options?.First().Name} {e.Interaction.Data.Options?.First().Options.First().Name}",
 					_ => string.Empty
 				};
-				
+
 				IEnumerable<object> options = await ParseOptions(_commands[e.Interaction.Data.Id].Methods[methodName],
 					(e.Interaction.Data.Options?.First().Type switch
 					{
@@ -213,7 +216,7 @@ namespace DSharpPlus.SlashCommands
 				{
 					ctx
 				};
-				
+
 				argumentsList.AddRange(options);
 
 
@@ -253,7 +256,7 @@ namespace DSharpPlus.SlashCommands
 					TargetUser = e.TargetUser,
 					SlashCommandsExtension = this
 				};
-				
+
 				MethodInfo method = _commands[e.Interaction.Data.Id].Methods[string.Empty];
 				ApplicationCommandModule instance =
 					(ApplicationCommandModule)Activator.CreateInstance(method.DeclaringType);
@@ -262,16 +265,15 @@ namespace DSharpPlus.SlashCommands
 
 				if (shouldRun)
 				{
-					await (Task)method.Invoke(instance, new object[]{ctx});
+					await (Task)method.Invoke(instance, new object[] { ctx });
 					await instance.AfterContextMenuExecutionAsync(ctx);
 				}
 			});
 			return Task.CompletedTask;
 		}
-		
+
 		private Task HandleAutocomplete(DiscordClient sender, InteractionCreateEventArgs e)
 		{
-
 			if (e.Interaction.Type != InteractionType.AutoComplete) return Task.CompletedTask;
 			Task.Run(async () =>
 			{
@@ -284,7 +286,7 @@ namespace DSharpPlus.SlashCommands
 				})?.ToArray() ?? Array.Empty<DiscordInteractionDataOption>();
 
 				DiscordInteractionDataOption focusedOption = options.First(x => x.Focused);
-				
+
 				AutocompleteContext ctx = new()
 				{
 					Channel = e.Interaction.Channel,
@@ -309,13 +311,15 @@ namespace DSharpPlus.SlashCommands
 					new DiscordInteractionResponseBuilder().AddAutoCompleteChoices(choices));
 			});
 			return Task.CompletedTask;
-			
 		}
+		// ReSharper restore AssignNullToNotNullAttribute
+		// ReSharper restore PossibleNullReferenceException
 
-		private async Task<IEnumerable<object>> ParseOptions(MethodInfo info, DiscordInteractionDataOption[] options, DiscordInteractionResolvedCollection resolved)
+		private async Task<IEnumerable<object>> ParseOptions(MethodInfo info, DiscordInteractionDataOption[] options,
+			DiscordInteractionResolvedCollection resolved)
 		{
 			List<object> objects = new();
-			
+
 			foreach (ParameterInfo param in info.GetParameters().Skip(1))
 			{
 				string paramName = param.GetCustomAttribute<OptionAttribute>()?.Name;
@@ -323,11 +327,12 @@ namespace DSharpPlus.SlashCommands
 
 				objects.Add(await ConvertOptionToType(option, param.ParameterType, resolved));
 			}
-			
+
 			return objects;
 		}
 
-		private async Task<object> ConvertOptionToType(DiscordInteractionDataOption option, Type type, DiscordInteractionResolvedCollection resolved)
+		private async Task<object> ConvertOptionToType(DiscordInteractionDataOption option, Type type,
+			DiscordInteractionResolvedCollection resolved)
 		{
 			// here's another part that everyone hates
 			if (option == null)
@@ -348,6 +353,7 @@ namespace DSharpPlus.SlashCommands
 
 				return await _client.GetUserAsync(id);
 			}
+
 			if (type == typeof(DiscordChannel))
 			{
 				ulong id = (ulong)option.Value;
@@ -356,11 +362,13 @@ namespace DSharpPlus.SlashCommands
 
 				return await _client.GetChannelAsync(id);
 			}
+
 			if (type == typeof(DiscordRole))
 			{
 				ulong id = (ulong)option.Value;
 				return resolved.Roles.TryGetValue(id, out DiscordRole r) ? r : null;
 			}
+
 			if (type == typeof(SnowflakeObject))
 			{
 				ulong id = (ulong)option.Value;
@@ -373,6 +381,7 @@ namespace DSharpPlus.SlashCommands
 					return user;
 				throw new ArgumentException("Error resolving mentionable option.");
 			}
+
 			if (type == typeof(Enum))
 				throw new ArgumentException("Enums are not supported yet");
 			throw new ArgumentOutOfRangeException(nameof(type), type,

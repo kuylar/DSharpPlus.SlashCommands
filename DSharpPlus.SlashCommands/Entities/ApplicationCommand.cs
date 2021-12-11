@@ -20,6 +20,7 @@ namespace DSharpPlus.SlashCommands.Entities
 			AutocompleteMethods = new Dictionary<string, MethodInfo>();
 
 			if (builder.Options?.FirstOrDefault()?.Type is ApplicationCommandOptionType.SubCommand)
+			{
 				foreach (ApplicationCommandOptionBuilder option in builder.Options)
 				{
 					Methods.Add(option.Name, option.Method);
@@ -29,7 +30,9 @@ namespace DSharpPlus.SlashCommands.Entities
 						AutocompleteMethods.Add(optionName + autocompleteOption.Name,
 							autocompleteOption.AutoCompleteMethod);
 				}
+			}
 			else if (builder.Options?.FirstOrDefault()?.Type is ApplicationCommandOptionType.SubCommandGroup)
+			{
 				foreach (ApplicationCommandOptionBuilder group in builder.Options)
 				{
 					string groupName = group.Name + " ";
@@ -43,10 +46,11 @@ namespace DSharpPlus.SlashCommands.Entities
 								autocompleteOption.AutoCompleteMethod);
 					}
 				}
+			}
 			else
 			{
 				Methods.Add(string.Empty, builder.Method);
-			
+
 				foreach (ApplicationCommandOptionBuilder autocompleteOption in builder.Options?.Where(x =>
 					x.AutoCompleteMethod != null) ?? Array.Empty<ApplicationCommandOptionBuilder>())
 					AutocompleteMethods.Add(autocompleteOption.Name, autocompleteOption.AutoCompleteMethod);

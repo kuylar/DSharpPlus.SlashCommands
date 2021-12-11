@@ -28,14 +28,14 @@ using DSharpPlus.Entities;
 namespace DSharpPlus.SlashCommands
 {
     /// <summary>
-    /// All autocomplete providers must inherit from this interface.
+    ///     All autocomplete providers must inherit from this interface.
     /// </summary>
     public interface IAutocompleteProvider
-    {
+	{
         /// <summary>
-        /// Provides autocomplete choices.
+        ///     Provides autocomplete choices.
         /// </summary>
         /// <param name="ctx">The autocomplete context.</param>
         public Task<IEnumerable<DiscordAutoCompleteChoice>> Provider(AutocompleteContext ctx);
-    }
+	}
 }

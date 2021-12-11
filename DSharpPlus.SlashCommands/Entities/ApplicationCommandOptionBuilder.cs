@@ -94,7 +94,9 @@ namespace DSharpPlus.SlashCommands.Entities
 
 		public ApplicationCommandOptionBuilder AddOption(ApplicationCommandOptionBuilder builder)
 		{
-			if (Type is not ApplicationCommandOptionType.SubCommandGroup && builder.Type is (ApplicationCommandOptionType.SubCommand or ApplicationCommandOptionType.SubCommandGroup))
+			if (Type is not ApplicationCommandOptionType.SubCommandGroup &&
+			    builder.Type is (ApplicationCommandOptionType.SubCommand or ApplicationCommandOptionType.SubCommandGroup
+				    ))
 				throw new InvalidOperationException(
 					"Only slash command options of type SubCommandGroup can have options added in them");
 
@@ -118,9 +120,9 @@ namespace DSharpPlus.SlashCommands.Entities
 				ApplicationCommandOptionType.String))
 				throw new InvalidOperationException(
 					"Only slash command options of type Integer, Number or String can have choices added in them");
-			
+
 			// TODO: method checks
-			
+
 			AutoCompleteMethod = methodInfo;
 			return this;
 		}
