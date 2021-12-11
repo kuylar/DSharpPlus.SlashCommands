@@ -27,6 +27,8 @@ namespace DSharpPlus.SlashCommands.TestBot
 			SlashCommandsExtension slash = _client.UseSlashCommands();
 
 			slash.RegisterCommands<SlashCommands>(917263628846108683);
+			slash.RegisterCommands<OneLevelGroup>(917263628846108683);
+			slash.RegisterCommands<TwoLevelGroup>(917263628846108683);
 			slash.RegisterCommands<ContextMenus>(917263628846108683);
 
 			_client.ClientErrored += (_, args) =>

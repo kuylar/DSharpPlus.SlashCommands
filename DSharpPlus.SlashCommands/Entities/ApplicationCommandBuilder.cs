@@ -47,6 +47,12 @@ namespace DSharpPlus.SlashCommands.Entities
 			return this;
 		}
 
+		public ApplicationCommandBuilder AddOptions(params ApplicationCommandOptionBuilder[] builder)
+		{
+			Options.AddRange(builder);
+			return this;
+		}
+
 		public ApplicationCommandBuilder WithMethod(MethodInfo methodInfo)
 		{
 			Method = methodInfo;

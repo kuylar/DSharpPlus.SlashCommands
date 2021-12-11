@@ -47,85 +47,109 @@ namespace DSharpPlus.SlashCommands
 
 		public void RegisterCommands<T>(ulong? guildId)
 		{
-			// normal commands
-			foreach (MethodInfo method in typeof(T).GetMethods()
-				.Where(x => x.GetCustomAttribute<SlashCommandAttribute>() != null))
+			Type t = typeof(T);
+			if (t.GetCustomAttribute<SlashCommandGroupAttribute>() is not null)
 			{
-				SlashCommandAttribute attr = method.GetCustomAttribute<SlashCommandAttribute>();
-
-				if (attr == null) return; // shut up rider
-
+				SlashCommandGroupAttribute gAttr = t.GetCustomAttribute<SlashCommandGroupAttribute>();
+				if (gAttr == null) return; // shut up rider
 				ApplicationCommandBuilder command = new ApplicationCommandBuilder(ApplicationCommandType.SlashCommand)
-					.WithName(attr.Name)
-					.WithDescription(attr.Description)
-					.WithDefaultPermission(attr.DefaultPermission)
-					.WithMethod(method);
+					.WithName(gAttr.Name)
+					.WithDescription(gAttr.Description);
 
-				if (method.GetParameters()[0].ParameterType != typeof(InteractionContext))
-					throw new ArgumentException("The first argument on slash commands must be InteractionContext");
-
-				foreach (ParameterInfo parameterInfo in method.GetParameters().Skip(1))
+				if (t.GetNestedTypes().Any(x => x.GetCustomAttribute<SlashCommandGroupAttribute>() is not null))
 				{
-					ApplicationCommandOptionType type;
-					OptionAttribute optionAttr = parameterInfo.GetCustomAttribute<OptionAttribute>();
-					// here's the part that everyone hates
-					if (parameterInfo.ParameterType == typeof(string))
-						type = ApplicationCommandOptionType.String;
-					else if (parameterInfo.ParameterType == typeof(long))
-						type = ApplicationCommandOptionType.Integer;
-					else if (parameterInfo.ParameterType == typeof(bool))
-						type = ApplicationCommandOptionType.Boolean;
-					else if (parameterInfo.ParameterType == typeof(double))
-						type = ApplicationCommandOptionType.Number;
-					else if (parameterInfo.ParameterType == typeof(DiscordUser))
-						type = ApplicationCommandOptionType.User;
-					else if (parameterInfo.ParameterType == typeof(DiscordChannel))
-						type = ApplicationCommandOptionType.Channel;
-					else if (parameterInfo.ParameterType == typeof(DiscordRole))
-						type = ApplicationCommandOptionType.Role;
-					else if (parameterInfo.ParameterType == typeof(SnowflakeObject))
-						type = ApplicationCommandOptionType.Mentionable;
-					else if (parameterInfo.ParameterType == typeof(Enum))
-						throw new ArgumentException("Enums are not supported yet"); // todo
-					else
-						throw new ArgumentOutOfRangeException(nameof(parameterInfo.ParameterType),
-							parameterInfo.ParameterType,
-							"Slash command option types can be one of string, long, bool, double, DiscordUser, DiscordChannel, DiscordRole, SnowflakeObject, Enum");
+					// two-level groups
+					foreach (Type g in t.GetNestedTypes())
+					{
+						SlashCommandGroupAttribute sGAttr = g.GetCustomAttribute<SlashCommandGroupAttribute>();
+						if (sGAttr == null) return; // shut up rider
 
-					ApplicationCommandOptionBuilder option = new ApplicationCommandOptionBuilder(type)
-						.WithName(optionAttr?.Name)
-						.WithDescription(optionAttr?.Description)
-						.IsRequired(!parameterInfo.IsOptional);
+						ApplicationCommandOptionBuilder group =
+							new ApplicationCommandOptionBuilder(ApplicationCommandOptionType.SubCommandGroup)
+								.WithName(sGAttr.Name)
+								.WithDescription(sGAttr.Description);
 
-					foreach (Attribute attribute in parameterInfo.GetCustomAttributes())
-						switch (attribute)
+						foreach (MethodInfo method in g.GetMethods()
+							.Where(x => x.GetCustomAttribute<SlashCommandAttribute>() != null))
 						{
-							case AutocompleteAttribute autocomplete:
-								option.WithAutocomplete(autocomplete.Provider.GetMethod("Provider"));
-								// this is stupid, fix later
-								break;
-							case ChannelTypesAttribute cType:
-								option.WithChannelTypes(cType.ChannelTypes.ToArray());
-								break;
-							case ChoiceAttribute choice:
-								option.AddChoice(choice.Name, choice.Value);
-								break;
-							case MinimumAttribute min:
-								option.WithMinMaxValue((long)min.Value, option.MaxValue);
-								break;
-							case MaximumAttribute max:
-								option.WithMinMaxValue(option.MinValue, (long)max.Value);
-								break;
+							SlashCommandAttribute attr = method.GetCustomAttribute<SlashCommandAttribute>();
+
+							if (attr == null) return; // shut up rider
+
+							ApplicationCommandOptionBuilder subcommand =
+								new ApplicationCommandOptionBuilder(ApplicationCommandOptionType.SubCommand)
+									.WithName(attr.Name)
+									.WithDescription(attr.Description)
+									.WithMethod(method);
+
+							if (method.GetParameters()[0].ParameterType != typeof(InteractionContext))
+								throw new ArgumentException(
+									"The first argument on slash commands must be InteractionContext");
+
+							subcommand.AddOptions(ParseParameters(method.GetParameters().Skip(1)));
+
+							group.AddOption(subcommand);
 						}
 
-					command.AddOption(option);
+						command.AddOption(group);
+					}
+				}
+				else
+				{
+					// one-level groups
+					foreach (MethodInfo method in t.GetMethods()
+						.Where(x => x.GetCustomAttribute<SlashCommandAttribute>() != null))
+					{
+						SlashCommandAttribute attr = method.GetCustomAttribute<SlashCommandAttribute>();
+
+						if (attr == null) return; // shut up rider
+
+						ApplicationCommandOptionBuilder subcommand =
+							new ApplicationCommandOptionBuilder(ApplicationCommandOptionType.SubCommand)
+								.WithName(attr.Name)
+								.WithDescription(attr.Description)
+								.WithMethod(method);
+
+						if (method.GetParameters()[0].ParameterType != typeof(InteractionContext))
+							throw new ArgumentException(
+								"The first argument on slash commands must be InteractionContext");
+
+						subcommand.AddOptions(ParseParameters(method.GetParameters().Skip(1)));
+
+						command.AddOption(subcommand);
+					}
 				}
 
 				RegisterCommand(command, guildId);
 			}
+			else
+			{
+				// normal commands
+				foreach (MethodInfo method in t.GetMethods()
+					.Where(x => x.GetCustomAttribute<SlashCommandAttribute>() != null))
+				{
+					SlashCommandAttribute attr = method.GetCustomAttribute<SlashCommandAttribute>();
+
+					if (attr == null) return; // shut up rider
+
+					ApplicationCommandBuilder command =
+						new ApplicationCommandBuilder(ApplicationCommandType.SlashCommand)
+							.WithName(attr.Name)
+							.WithDescription(attr.Description)
+							.WithDefaultPermission(attr.DefaultPermission)
+							.WithMethod(method);
+
+					if (method.GetParameters()[0].ParameterType != typeof(InteractionContext))
+						throw new ArgumentException("The first argument on slash commands must be InteractionContext");
+
+					command.AddOptions(ParseParameters(method.GetParameters().Skip(1)));
+
+					RegisterCommand(command, guildId);
+				}
+			}
 
 			// context menus
-			foreach (MethodInfo method in typeof(T).GetMethods()
+			foreach (MethodInfo method in t.GetMethods()
 				.Where(x => x.GetCustomAttribute<ContextMenuAttribute>() != null))
 			{
 				ContextMenuAttribute attr = method.GetCustomAttribute<ContextMenuAttribute>();
@@ -314,6 +338,69 @@ namespace DSharpPlus.SlashCommands
 		}
 		// ReSharper restore AssignNullToNotNullAttribute
 		// ReSharper restore PossibleNullReferenceException
+
+		private ApplicationCommandOptionBuilder[] ParseParameters(IEnumerable<ParameterInfo> parameters)
+		{
+			List<ApplicationCommandOptionBuilder> res = new();
+			foreach (ParameterInfo parameterInfo in parameters)
+			{
+				ApplicationCommandOptionType type;
+				OptionAttribute optionAttr = parameterInfo.GetCustomAttribute<OptionAttribute>();
+				// here's the part that everyone hates
+				if (parameterInfo.ParameterType == typeof(string))
+					type = ApplicationCommandOptionType.String;
+				else if (parameterInfo.ParameterType == typeof(long))
+					type = ApplicationCommandOptionType.Integer;
+				else if (parameterInfo.ParameterType == typeof(bool))
+					type = ApplicationCommandOptionType.Boolean;
+				else if (parameterInfo.ParameterType == typeof(double))
+					type = ApplicationCommandOptionType.Number;
+				else if (parameterInfo.ParameterType == typeof(DiscordUser))
+					type = ApplicationCommandOptionType.User;
+				else if (parameterInfo.ParameterType == typeof(DiscordChannel))
+					type = ApplicationCommandOptionType.Channel;
+				else if (parameterInfo.ParameterType == typeof(DiscordRole))
+					type = ApplicationCommandOptionType.Role;
+				else if (parameterInfo.ParameterType == typeof(SnowflakeObject))
+					type = ApplicationCommandOptionType.Mentionable;
+				else if (parameterInfo.ParameterType == typeof(Enum))
+					throw new ArgumentException("Enums are not supported yet"); // todo
+				else
+					throw new ArgumentOutOfRangeException(nameof(parameterInfo.ParameterType),
+						parameterInfo.ParameterType,
+						"Slash command option types can be one of string, long, bool, double, DiscordUser, DiscordChannel, DiscordRole, SnowflakeObject, Enum");
+
+				ApplicationCommandOptionBuilder option = new ApplicationCommandOptionBuilder(type)
+					.WithName(optionAttr?.Name)
+					.WithDescription(optionAttr?.Description)
+					.IsRequired(!parameterInfo.IsOptional);
+
+				foreach (Attribute attribute in parameterInfo.GetCustomAttributes())
+					switch (attribute)
+					{
+						case AutocompleteAttribute autocomplete:
+							option.WithAutocomplete(autocomplete.Provider.GetMethod("Provider"));
+							// this is stupid, fix later
+							break;
+						case ChannelTypesAttribute cType:
+							option.WithChannelTypes(cType.ChannelTypes.ToArray());
+							break;
+						case ChoiceAttribute choice:
+							option.AddChoice(choice.Name, choice.Value);
+							break;
+						case MinimumAttribute min:
+							option.WithMinMaxValue((long)min.Value, option.MaxValue);
+							break;
+						case MaximumAttribute max:
+							option.WithMinMaxValue(option.MinValue, (long)max.Value);
+							break;
+					}
+
+				res.Add(option);
+			}
+
+			return res.ToArray();
+		}
 
 		private async Task<IEnumerable<object>> ParseOptions(MethodInfo info, DiscordInteractionDataOption[] options,
 			DiscordInteractionResolvedCollection resolved)

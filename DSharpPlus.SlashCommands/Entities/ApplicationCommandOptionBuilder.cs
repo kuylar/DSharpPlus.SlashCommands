@@ -104,6 +104,12 @@ namespace DSharpPlus.SlashCommands.Entities
 			return this;
 		}
 
+		public ApplicationCommandOptionBuilder AddOptions(params ApplicationCommandOptionBuilder[] builders)
+		{
+			foreach (ApplicationCommandOptionBuilder builder in builders) AddOption(builder);
+			return this;
+		}
+
 		public ApplicationCommandOptionBuilder WithMethod(MethodInfo methodInfo)
 		{
 			if (Type is not (ApplicationCommandOptionType.SubCommand or ApplicationCommandOptionType.SubCommandGroup))
