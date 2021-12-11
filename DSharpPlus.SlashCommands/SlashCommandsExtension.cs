@@ -59,7 +59,7 @@ namespace DSharpPlus.SlashCommands
 				{
 					ApplicationCommandOptionType type;
 					OptionAttribute optionAttr = parameterInfo.GetCustomAttribute<OptionAttribute>();
-					// heres the part that everyone hates
+					// here's the part that everyone hates
 					if (parameterInfo.ParameterType == typeof(string))
 						type = ApplicationCommandOptionType.String;
 					else if (parameterInfo.ParameterType == typeof(long))
@@ -149,32 +149,65 @@ namespace DSharpPlus.SlashCommands
 		
 		private Task HandleSlashCommand(DiscordClient sender, InteractionCreateEventArgs e)
 		{
-			// TODO: DO ***NOT*** FORGET BEFORE/AFTEREXECUTIONASYNC
 			if (e.Interaction.Type != InteractionType.ApplicationCommand) return Task.CompletedTask;
 			Task.Run(async () =>
 			{
-				string method = e.Interaction.Data.Options?.First().Type switch
+				string methodName = e.Interaction.Data.Options?.First().Type switch
 				{
 					ApplicationCommandOptionType.SubCommand => e.Interaction.Data.Options?.First().Name,
 					ApplicationCommandOptionType.SubCommandGroup =>
 						$"{e.Interaction.Data.Options?.First().Name} {e.Interaction.Data.Options?.First().Options.First().Name}",
 					_ => string.Empty
 				};
+				
+				IEnumerable<object> options = await ParseOptions(_commands[e.Interaction.Data.Id].Methods[methodName],
+					(e.Interaction.Data.Options?.First().Type switch
+					{
+						ApplicationCommandOptionType.SubCommand => e.Interaction.Data.Options?.First().Options,
+						ApplicationCommandOptionType.SubCommandGroup => e.Interaction.Data.Options?.First().Options
+							.First().Options,
+						_ => e.Interaction.Data.Options
+					} ?? Array.Empty<DiscordInteractionDataOption>()).ToArray(), e.Interaction.Data.Resolved);
 
-				IEnumerable<object> options =
-					await ParseOptions(_commands[e.Interaction.Data.Id].Methods[method],
-						e.Interaction.Data.Options?.First().Type switch
-						{
-							ApplicationCommandOptionType.SubCommand => e.Interaction.Data.Options?.First().Options,
-							ApplicationCommandOptionType.SubCommandGroup => e.Interaction.Data.Options?.First().Options
-								.First().Options,
-							_ => e.Interaction.Data.Options
-						} ?? Array.Empty<DiscordInteractionDataOption>());
 				// SORRY
 
-				string opts = string.Join("\n", options);
-				await e.Interaction.CreateResponseAsync(InteractionResponseType.ChannelMessageWithSource, new DiscordInteractionResponseBuilder()
-					.WithContent($"[{e.Interaction.Id}]: {method}\n{opts}"));
+				InteractionContext ctx = new()
+				{
+					Channel = e.Interaction.Channel,
+					Client = sender,
+					Guild = e.Interaction.Guild,
+					Interaction = e.Interaction,
+					// todo: services
+					Token = e.Interaction.Token,
+					Type = e.Interaction.Data.Type,
+					User = e.Interaction.User,
+					CommandName = e.Interaction.Data.Name,
+					InteractionId = e.Interaction.Id,
+					ResolvedChannelMentions = e.Interaction.Data.Resolved?.Channels.Values.ToList(),
+					ResolvedUserMentions = e.Interaction.Data.Resolved?.Users.Values.ToList(),
+					ResolvedRoleMentions = e.Interaction.Data.Resolved?.Roles.Values.ToList(),
+					SlashCommandsExtension = this
+				};
+
+				List<object> argumentsList = new()
+				{
+					ctx
+				};
+				
+				argumentsList.AddRange(options);
+
+
+				MethodInfo method = _commands[e.Interaction.Data.Id].Methods[methodName];
+				ApplicationCommandModule instance =
+					(ApplicationCommandModule)Activator.CreateInstance(method.DeclaringType);
+
+				bool shouldRun = await instance.BeforeSlashExecutionAsync(ctx);
+
+				if (shouldRun)
+				{
+					await (Task)method.Invoke(instance, argumentsList.ToArray());
+					await instance.AfterSlashExecutionAsync(ctx);
+				}
 			});
 			return Task.CompletedTask;
 		}
@@ -192,17 +225,74 @@ namespace DSharpPlus.SlashCommands
 			return Task.CompletedTask;
 		}
 
-		private async Task<IEnumerable<object>> ParseOptions(MethodInfo info, IEnumerable<DiscordInteractionDataOption> options)
+		private async Task<IEnumerable<object>> ParseOptions(MethodInfo info, DiscordInteractionDataOption[] options, DiscordInteractionResolvedCollection resolved)
 		{
 			List<object> objects = new();
 			
-			
-			foreach (DiscordInteractionDataOption option in options)
+			foreach (ParameterInfo param in info.GetParameters().Skip(1))
 			{
-				objects.Add($"{option.Type}: {option.Value}");
+				string paramName = param.GetCustomAttribute<OptionAttribute>()?.Name;
+				DiscordInteractionDataOption option = options.FirstOrDefault(x => x.Name == paramName);
+
+				object value = await ConvertOptionToType(option, param.ParameterType, resolved);
+				
+				objects.Add(
+					$"<{param.ParameterType.Name}> {param.Name}: {value ?? param.DefaultValue ?? "`<NULL>`"}");
 			}
 			
 			return objects;
+		}
+
+		private async Task<object> ConvertOptionToType(DiscordInteractionDataOption option, Type type, DiscordInteractionResolvedCollection resolved)
+		{
+			// here's another part that everyone hates
+			if (option == null)
+				return null;
+			if (type == typeof(string))
+				return (string)option.Value;
+			if (type == typeof(long))
+				return (long)option.Value;
+			if (type == typeof(bool))
+				return (bool)option.Value;
+			if (type == typeof(double))
+				return (double)option.Value;
+			if (type == typeof(DiscordUser))
+			{
+				ulong id = (ulong)option.Value;
+				if (resolved.Users.TryGetValue(id, out DiscordUser u))
+					return u;
+
+				return await _client.GetUserAsync(id);
+			}
+			if (type == typeof(DiscordChannel))
+			{
+				ulong id = (ulong)option.Value;
+				if (resolved.Channels.TryGetValue(id, out DiscordChannel c))
+					return c;
+
+				return await _client.GetChannelAsync(id);
+			}
+			if (type == typeof(DiscordRole))
+			{
+				ulong id = (ulong)option.Value;
+				return resolved.Roles.TryGetValue(id, out DiscordRole r) ? r : null;
+			}
+			if (type == typeof(SnowflakeObject))
+			{
+				ulong id = (ulong)option.Value;
+				//Checks through resolved
+				if (resolved.Roles != null && resolved.Roles.TryGetValue(id, out DiscordRole role))
+					return role;
+				if (resolved.Members != null && resolved.Members.TryGetValue(id, out DiscordMember member))
+					return member;
+				if (resolved.Users != null && resolved.Users.TryGetValue(id, out DiscordUser user))
+					return user;
+				throw new ArgumentException("Error resolving mentionable option.");
+			}
+			if (type == typeof(Enum))
+				throw new ArgumentException("Enums are not supported yet");
+			throw new ArgumentOutOfRangeException(nameof(type), type,
+				"Slash command option types can be one of string, long, bool, double, DiscordUser, DiscordChannel, DiscordRole, SnowflakeObject, Enum");
 		}
 	}
 }
