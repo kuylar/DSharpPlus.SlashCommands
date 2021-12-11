@@ -27,6 +27,7 @@ namespace DSharpPlus.SlashCommands
 			_rawCommands = new List<(ApplicationCommandBuilder, ulong)>();
 			_commands = new Dictionary<ulong, ApplicationCommand>();
 
+			_client.Ready += OnReady;
 			_client.GuildAvailable += OnGuildAvailable;
 
 			_client.InteractionCreated += HandleSlashCommand;
@@ -133,6 +134,17 @@ namespace DSharpPlus.SlashCommands
 
 				RegisterCommand(command, guildId);
 			}
+		}
+
+		private async Task OnReady(DiscordClient sender, ReadyEventArgs args)
+		{
+			ApplicationCommandBuilder[] commands =
+				_rawCommands.Where(x => x.GuildId == 0).Select(x => x.Command).ToArray();
+			IEnumerable<DiscordApplicationCommand> dcCommands =
+				await _client.BulkOverwriteGlobalApplicationCommandsAsync(commands.Select(x => x.Build()));
+
+			foreach (DiscordApplicationCommand dac in dcCommands)
+				_commands.Add(dac.Id, new ApplicationCommand(commands.First(x => x.Name == dac.Name), 0));
 		}
 
 		private async Task OnGuildAvailable(DiscordClient sender, GuildCreateEventArgs args)
