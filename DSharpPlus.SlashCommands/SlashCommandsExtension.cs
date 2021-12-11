@@ -12,12 +12,19 @@ namespace DSharpPlus.SlashCommands
 	public class SlashCommandsExtension : BaseExtension
 	{
 		private DiscordClient _client;
+		private IServiceProvider _services;
 
 		private Dictionary<ulong, ApplicationCommand> _commands;
 
 		private List<(ApplicationCommandBuilder Command, ulong GuildId)> _rawCommands;
 		// todo: delete this shit i literally wrote this entire thing because the old extension was using this shit
 
+		public SlashCommandsExtension(SlashCommandsConfiguration config = null)
+		{
+			if (config is null) config = new SlashCommandsConfiguration();
+			_services = config.Services;
+		}
+		
 		protected internal override void Setup(DiscordClient client)
 		{
 			if (_client != null)
@@ -190,7 +197,7 @@ namespace DSharpPlus.SlashCommands
 					Client = sender,
 					Guild = e.Interaction.Guild,
 					Interaction = e.Interaction,
-					// todo: services
+					Services = _services,
 					Token = e.Interaction.Token,
 					Type = e.Interaction.Data.Type,
 					User = e.Interaction.User,
@@ -236,7 +243,7 @@ namespace DSharpPlus.SlashCommands
 					Client = sender,
 					Guild = e.Interaction.Guild,
 					Interaction = e.Interaction,
-					// todo: services
+					Services = _services,
 					Token = e.Interaction.Token,
 					Type = e.Interaction.Data.Type,
 					User = e.Interaction.User,
@@ -284,7 +291,7 @@ namespace DSharpPlus.SlashCommands
 					Client = sender,
 					Guild = e.Interaction.Guild,
 					Interaction = e.Interaction,
-					// todo: services
+					Services = _services,
 					Options = options.ToList(),
 					User = e.Interaction.User,
 					FocusedOption = focusedOption,

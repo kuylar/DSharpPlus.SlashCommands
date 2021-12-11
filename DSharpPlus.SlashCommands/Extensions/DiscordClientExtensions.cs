@@ -2,10 +2,9 @@ namespace DSharpPlus.SlashCommands
 {
 	public static class DiscordClientExtensions
 	{
-		//TODO: config
-		public static SlashCommandsExtension UseSlashCommands(this DiscordClient client)
+		public static SlashCommandsExtension UseSlashCommands(this DiscordClient client, SlashCommandsConfiguration config = null)
 		{
-			SlashCommandsExtension ext = new();
+			SlashCommandsExtension ext = new(config);
 			client.AddExtension(ext);
 			return ext;
 		}
