@@ -27,6 +27,6 @@ namespace DSharpPlus.SlashCommands.TestBot
 		
 		[ContextMenu(ApplicationCommandType.UserContextMenu, "User")]
 		public async Task UserCommand(ContextMenuContext ctx) =>
-			await ctx.CreateResponseAsync(ctx.TargetMessage.Author.Mention);
+			await ctx.CreateResponseAsync(ctx.TargetUser.Mention);
 	}
 }

@@ -217,10 +217,34 @@ namespace DSharpPlus.SlashCommands
 			if (e.Interaction.Type != InteractionType.ApplicationCommand) return Task.CompletedTask;
 			Task.Run(async () =>
 			{
-				string method = string.Empty;
+				ContextMenuContext ctx = new()
+				{
+					Channel = e.Interaction.Channel,
+					Client = sender,
+					Guild = e.Interaction.Guild,
+					Interaction = e.Interaction,
+					// todo: services
+					Token = e.Interaction.Token,
+					Type = e.Interaction.Data.Type,
+					User = e.Interaction.User,
+					CommandName = e.Interaction.Data.Name,
+					InteractionId = e.Interaction.Id,
+					TargetMessage = e.TargetMessage,
+					TargetUser = e.TargetUser,
+					SlashCommandsExtension = this
+				};
+				
+				MethodInfo method = _commands[e.Interaction.Data.Id].Methods[string.Empty];
+				ApplicationCommandModule instance =
+					(ApplicationCommandModule)Activator.CreateInstance(method.DeclaringType);
 
-				await e.Interaction.CreateResponseAsync(InteractionResponseType.ChannelMessageWithSource, new DiscordInteractionResponseBuilder()
-					.WithContent($"[{e.Interaction.Id}]: {method}\nUser: {e.TargetUser}\nMessage: {e.TargetMessage}"));
+				bool shouldRun = await instance.BeforeContextMenuExecutionAsync(ctx);
+
+				if (shouldRun)
+				{
+					await (Task)method.Invoke(instance, new object[]{ctx});
+					await instance.AfterContextMenuExecutionAsync(ctx);
+				}
 			});
 			return Task.CompletedTask;
 		}
