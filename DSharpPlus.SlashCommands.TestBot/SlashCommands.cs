@@ -101,5 +101,16 @@ namespace DSharpPlus.SlashCommands.TestBot
 			[Minimum(10)] [Maximum(15)]
 			double number) =>
 			await ctx.CreateResponseAsync($"Autocomplete: {autocomplete}\nVoice channel: {channel.Mention}\nChoice: `{choice}`\nNumber: 9<{number}<16");
+
+		[SlashCommand("autocomplete", "Autocomplete")]
+		public async Task AutocompleteCommand(InteractionContext ctx,
+			[Option("option1", "Functional autocomplete")]
+			[Autocomplete(typeof(Autocomplete))]
+			string option1,
+			[Option("option2", "Functional autocomplete")]
+			[Autocomplete(typeof(Autocomplete))]
+			string option2) =>
+			await ctx.CreateResponseAsync($"You chose:\n{option1}\n{option2}");
+
 	}
 }

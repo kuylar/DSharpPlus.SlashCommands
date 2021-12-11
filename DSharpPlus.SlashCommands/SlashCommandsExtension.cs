@@ -32,6 +32,7 @@ namespace DSharpPlus.SlashCommands
 
 			_client.InteractionCreated += HandleSlashCommand;
 			_client.ContextMenuInteractionCreated += HandleContextMenu;
+			_client.InteractionCreated += HandleAutocomplete;
 		}
 
 		public void RegisterCommand(ApplicationCommandBuilder command, ulong? guildId) =>
@@ -259,6 +260,49 @@ namespace DSharpPlus.SlashCommands
 				}
 			});
 			return Task.CompletedTask;
+		}
+		
+		private Task HandleAutocomplete(DiscordClient sender, InteractionCreateEventArgs e)
+		{
+
+			if (e.Interaction.Type != InteractionType.AutoComplete) return Task.CompletedTask;
+			Task.Run(async () =>
+			{
+				DiscordInteractionDataOption[] options = (e.Interaction.Data.Options?.First().Type switch
+				{
+					ApplicationCommandOptionType.SubCommand => e.Interaction.Data.Options?.First().Options,
+					ApplicationCommandOptionType.SubCommandGroup => e.Interaction.Data.Options?.First().Options
+						.First().Options,
+					_ => e.Interaction.Data.Options
+				})?.ToArray() ?? Array.Empty<DiscordInteractionDataOption>();
+
+				DiscordInteractionDataOption focusedOption = options.First(x => x.Focused);
+				
+				AutocompleteContext ctx = new()
+				{
+					Channel = e.Interaction.Channel,
+					Client = sender,
+					Guild = e.Interaction.Guild,
+					Interaction = e.Interaction,
+					// todo: services
+					Options = options.ToList(),
+					User = e.Interaction.User,
+					FocusedOption = focusedOption,
+					SlashCommandsExtension = this
+				};
+
+
+				MethodInfo method = _commands[e.Interaction.Data.Id].AutocompleteMethods[focusedOption.Name];
+				IAutocompleteProvider instance =
+					(IAutocompleteProvider)Activator.CreateInstance(method.DeclaringType);
+
+				IEnumerable<DiscordAutoCompleteChoice> choices = await instance.Provider(ctx);
+
+				await e.Interaction.CreateResponseAsync(InteractionResponseType.AutoCompleteResult,
+					new DiscordInteractionResponseBuilder().AddAutoCompleteChoices(choices));
+			});
+			return Task.CompletedTask;
+			
 		}
 
 		private async Task<IEnumerable<object>> ParseOptions(MethodInfo info, DiscordInteractionDataOption[] options, DiscordInteractionResolvedCollection resolved)
