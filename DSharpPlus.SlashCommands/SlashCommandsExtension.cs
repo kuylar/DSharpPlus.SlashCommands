@@ -16,6 +16,8 @@ namespace DSharpPlus.SlashCommands
 
 		private Dictionary<ulong, ApplicationCommand> _commands;
 		private List<(ApplicationCommandBuilder Command, ulong GuildId)> _unsubmittedCommands;
+		
+		public Dictionary<ulong, ApplicationCommand> RegisteredCommands => _commands;
 
 		public SlashCommandsExtension(SlashCommandsConfiguration config = null)
 		{
@@ -43,21 +45,22 @@ namespace DSharpPlus.SlashCommands
 		public void RegisterCommand(ApplicationCommandBuilder command, ulong? guildId) =>
 			_unsubmittedCommands.Add((command, guildId ?? 0));
 
-		public void RegisterCommands<T>(ulong? guildId)
+		public void RegisterCommands<T>(ulong? guildId) => RegisterCommands(typeof(T), guildId);
+
+		public void RegisterCommands(Type module, ulong? guildId)
 		{
-			Type t = typeof(T);
-			if (t.GetCustomAttribute<SlashCommandGroupAttribute>() is not null)
+			if (module.GetCustomAttribute<SlashCommandGroupAttribute>() is not null)
 			{
-				SlashCommandGroupAttribute gAttr = t.GetCustomAttribute<SlashCommandGroupAttribute>();
+				SlashCommandGroupAttribute gAttr = module.GetCustomAttribute<SlashCommandGroupAttribute>();
 				if (gAttr == null) return; // shut up rider
 				ApplicationCommandBuilder command = new ApplicationCommandBuilder(ApplicationCommandType.SlashCommand)
 					.WithName(gAttr.Name)
 					.WithDescription(gAttr.Description);
 
-				if (t.GetNestedTypes().Any(x => x.GetCustomAttribute<SlashCommandGroupAttribute>() is not null))
+				if (module.GetNestedTypes().Any(x => x.GetCustomAttribute<SlashCommandGroupAttribute>() is not null))
 				{
 					// two-level groups
-					foreach (Type g in t.GetNestedTypes())
+					foreach (Type g in module.GetNestedTypes())
 					{
 						SlashCommandGroupAttribute sGAttr = g.GetCustomAttribute<SlashCommandGroupAttribute>();
 						if (sGAttr == null) return; // shut up rider
@@ -95,7 +98,7 @@ namespace DSharpPlus.SlashCommands
 				else
 				{
 					// one-level groups
-					foreach (MethodInfo method in t.GetMethods()
+					foreach (MethodInfo method in module.GetMethods()
 						.Where(x => x.GetCustomAttribute<SlashCommandAttribute>() != null))
 					{
 						SlashCommandAttribute attr = method.GetCustomAttribute<SlashCommandAttribute>();
@@ -123,7 +126,7 @@ namespace DSharpPlus.SlashCommands
 			else
 			{
 				// normal commands
-				foreach (MethodInfo method in t.GetMethods()
+				foreach (MethodInfo method in module.GetMethods()
 					.Where(x => x.GetCustomAttribute<SlashCommandAttribute>() != null))
 				{
 					SlashCommandAttribute attr = method.GetCustomAttribute<SlashCommandAttribute>();
@@ -147,7 +150,7 @@ namespace DSharpPlus.SlashCommands
 			}
 
 			// context menus
-			foreach (MethodInfo method in t.GetMethods()
+			foreach (MethodInfo method in module.GetMethods()
 				.Where(x => x.GetCustomAttribute<ContextMenuAttribute>() != null))
 			{
 				ContextMenuAttribute attr = method.GetCustomAttribute<ContextMenuAttribute>();
@@ -167,29 +170,42 @@ namespace DSharpPlus.SlashCommands
 			}
 		}
 
-		private async Task OnReady(DiscordClient sender, ReadyEventArgs args)
+		public void RegisterCommands(Assembly assembly, ulong? guildId)
 		{
-			ApplicationCommandBuilder[] commands =
-				_unsubmittedCommands.Where(x => x.GuildId == 0).Select(x => x.Command).ToArray();
-			IEnumerable<DiscordApplicationCommand> dcCommands =
-				await _client.BulkOverwriteGlobalApplicationCommandsAsync(commands.Select(x => x.Build()));
-			_unsubmittedCommands.RemoveAll(x => x.GuildId == 0);
+			IEnumerable<Type> types = assembly.ExportedTypes.Where(xt =>
+				typeof(ApplicationCommandModule).IsAssignableFrom(xt) &&
+				!xt.GetTypeInfo().IsNested);
 
-			foreach (DiscordApplicationCommand dac in dcCommands)
-				_commands.Add(dac.Id, new ApplicationCommand(commands.First(x => x.Name == dac.Name), 0));
+			foreach (Type xt in types)
+				RegisterCommands(xt, guildId);
 		}
 
-		private async Task OnGuildAvailable(DiscordClient sender, GuildCreateEventArgs args)
+		public async Task RefreshCommands()
+		{
+			await PushCommands();
+			foreach (ulong guildId in _client.Guilds.Keys) await PushCommands(guildId);
+		}
+
+		private async Task OnReady(DiscordClient sender, ReadyEventArgs args) => await PushCommands();
+
+		private async Task OnGuildAvailable(DiscordClient sender, GuildCreateEventArgs args) => await PushCommands(args.Guild.Id);
+
+		private async Task PushCommands(ulong guildId = 0)
 		{
 			ApplicationCommandBuilder[] commands =
-				_unsubmittedCommands.Where(x => x.GuildId == args.Guild.Id).Select(x => x.Command).ToArray();
-			IEnumerable<DiscordApplicationCommand> dcCommands =
-				await _client.BulkOverwriteGuildApplicationCommandsAsync(args.Guild.Id,
+				_unsubmittedCommands.Where(x => x.GuildId == guildId).Select(x => x.Command).ToArray();
+			IEnumerable<DiscordApplicationCommand> dcCommands;
+			if (guildId == 0)
+				dcCommands = await _client.BulkOverwriteGlobalApplicationCommandsAsync(commands.Select(x => x.Build()));
+			else
+				dcCommands = await _client.BulkOverwriteGuildApplicationCommandsAsync(guildId,
 					commands.Select(x => x.Build()));
-			_unsubmittedCommands.RemoveAll(x => x.GuildId == args.Guild.Id);
+			
+			foreach ((ulong key, ApplicationCommand _) in _commands.Where(x => x.Value.GuildId == guildId).ToArray())
+				_commands.Remove(key);
 
 			foreach (DiscordApplicationCommand dac in dcCommands)
-				_commands.Add(dac.Id, new ApplicationCommand(commands.First(x => x.Name == dac.Name), args.Guild.Id));
+				_commands.Add(dac.Id, new ApplicationCommand(commands.First(x => x.Name == dac.Name), guildId));
 		}
 
 		// ReSharper disable AssignNullToNotNullAttribute
