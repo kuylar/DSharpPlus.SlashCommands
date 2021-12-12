@@ -15,9 +15,7 @@ namespace DSharpPlus.SlashCommands
 		private IServiceProvider _services;
 
 		private Dictionary<ulong, ApplicationCommand> _commands;
-
-		private List<(ApplicationCommandBuilder Command, ulong GuildId)> _rawCommands;
-		// todo: delete this shit i literally wrote this entire thing because the old extension was using this shit
+		private List<(ApplicationCommandBuilder Command, ulong GuildId)> _unsubmittedCommands;
 
 		public SlashCommandsExtension(SlashCommandsConfiguration config = null)
 		{
@@ -31,7 +29,7 @@ namespace DSharpPlus.SlashCommands
 				throw new InvalidOperationException("DONT RUN SETUP MORE THAN ONCE");
 
 			_client = client;
-			_rawCommands = new List<(ApplicationCommandBuilder, ulong)>();
+			_unsubmittedCommands = new List<(ApplicationCommandBuilder, ulong)>();
 			_commands = new Dictionary<ulong, ApplicationCommand>();
 
 			_client.Ready += OnReady;
@@ -43,7 +41,7 @@ namespace DSharpPlus.SlashCommands
 		}
 
 		public void RegisterCommand(ApplicationCommandBuilder command, ulong? guildId) =>
-			_rawCommands.Add((command, guildId ?? 0));
+			_unsubmittedCommands.Add((command, guildId ?? 0));
 
 		public void RegisterCommands<T>(ulong? guildId)
 		{
@@ -172,9 +170,10 @@ namespace DSharpPlus.SlashCommands
 		private async Task OnReady(DiscordClient sender, ReadyEventArgs args)
 		{
 			ApplicationCommandBuilder[] commands =
-				_rawCommands.Where(x => x.GuildId == 0).Select(x => x.Command).ToArray();
+				_unsubmittedCommands.Where(x => x.GuildId == 0).Select(x => x.Command).ToArray();
 			IEnumerable<DiscordApplicationCommand> dcCommands =
 				await _client.BulkOverwriteGlobalApplicationCommandsAsync(commands.Select(x => x.Build()));
+			_unsubmittedCommands.RemoveAll(x => x.GuildId == 0);
 
 			foreach (DiscordApplicationCommand dac in dcCommands)
 				_commands.Add(dac.Id, new ApplicationCommand(commands.First(x => x.Name == dac.Name), 0));
@@ -183,10 +182,11 @@ namespace DSharpPlus.SlashCommands
 		private async Task OnGuildAvailable(DiscordClient sender, GuildCreateEventArgs args)
 		{
 			ApplicationCommandBuilder[] commands =
-				_rawCommands.Where(x => x.GuildId == args.Guild.Id).Select(x => x.Command).ToArray();
+				_unsubmittedCommands.Where(x => x.GuildId == args.Guild.Id).Select(x => x.Command).ToArray();
 			IEnumerable<DiscordApplicationCommand> dcCommands =
 				await _client.BulkOverwriteGuildApplicationCommandsAsync(args.Guild.Id,
 					commands.Select(x => x.Build()));
+			_unsubmittedCommands.RemoveAll(x => x.GuildId == args.Guild.Id);
 
 			foreach (DiscordApplicationCommand dac in dcCommands)
 				_commands.Add(dac.Id, new ApplicationCommand(commands.First(x => x.Name == dac.Name), args.Guild.Id));
