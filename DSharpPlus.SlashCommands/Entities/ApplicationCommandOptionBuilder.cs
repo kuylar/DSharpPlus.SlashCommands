@@ -42,24 +42,45 @@ namespace DSharpPlus.SlashCommands.Entities
 			}
 		}
 
+		/// <summary>
+		/// Sets the name of this option
+		/// </summary>
+		/// <param name="name">Name of this option</param>
+		/// <returns>ApplicationCommandOptionBuilder to be chained</returns>
 		public ApplicationCommandOptionBuilder WithName(string name)
 		{
 			Name = name;
 			return this;
 		}
 
+		/// <summary>
+		/// Sets the description of this option
+		/// </summary>
+		/// <param name="description">Description of this option</param>
+		/// <returns>ApplicationCommandOptionBuilder to be chained</returns>
 		public ApplicationCommandOptionBuilder WithDescription(string description)
 		{
 			Description = description;
 			return this;
 		}
 
+		/// <summary>
+		/// Sets if this option is required or optional
+		/// </summary>
+		/// <param name="required">If this option is required</param>
+		/// <returns>ApplicationCommandOptionBuilder to be chained</returns>
 		public ApplicationCommandOptionBuilder IsRequired(bool required)
 		{
 			Required = required;
 			return this;
 		}
 
+		/// <summary>
+		/// Adds a choice to this option
+		/// </summary>
+		/// <param name="name">The string the user will see while selecting this choice</param>
+		/// <param name="value">The value you will receive when the user selects this choice</param>
+		/// <returns>ApplicationCommandOptionBuilder to be chained</returns>
 		public ApplicationCommandOptionBuilder AddChoice(string name, object value)
 		{
 			if (Type is not (ApplicationCommandOptionType.Integer or ApplicationCommandOptionType.Number or
@@ -70,16 +91,27 @@ namespace DSharpPlus.SlashCommands.Entities
 			return this;
 		}
 
-		public ApplicationCommandOptionBuilder WithChannelTypes(params ChannelType[] channelType)
+		/// <summary>
+		/// Sets the types of channels that is allowed
+		/// </summary>
+		/// <param name="channelTypes">Allowed channel types</param>
+		/// <returns>ApplicationCommandOptionBuilder to be chained</returns>
+		public ApplicationCommandOptionBuilder WithChannelTypes(params ChannelType[] channelTypes)
 		{
 			if (Type != ApplicationCommandOptionType.Channel)
 				throw new InvalidOperationException(
 					"Only slash command options of type Channel can have channel types added in them");
 
-			ChannelType = channelType;
+			ChannelType = channelTypes;
 			return this;
 		}
 
+		/// <summary>
+		/// Sets the minimum and the maximum value of this option
+		/// </summary>
+		/// <param name="min">Minimum value this option can get</param>
+		/// <param name="max">Maximum value this option can get</param>
+		/// <returns>ApplicationCommandOptionBuilder to be chained</returns>
 		public ApplicationCommandOptionBuilder WithMinMaxValue(long? min, long? max)
 		{
 			if (Type is not (ApplicationCommandOptionType.Integer or ApplicationCommandOptionType.Number))
@@ -92,6 +124,11 @@ namespace DSharpPlus.SlashCommands.Entities
 			return this;
 		}
 
+		/// <summary>
+		/// Adds an option to this option
+		/// </summary>
+		/// <param name="builder">The option to add</param>
+		/// <returns>ApplicationCommandOptionBuilder to be chained</returns>
 		public ApplicationCommandOptionBuilder AddOption(ApplicationCommandOptionBuilder builder)
 		{
 			if (Type is not ApplicationCommandOptionType.SubCommandGroup &&
@@ -104,15 +141,25 @@ namespace DSharpPlus.SlashCommands.Entities
 			return this;
 		}
 
+		/// <summary>
+		/// Adds multiple options to this option
+		/// </summary>
+		/// <param name="builders">The options to add</param>
+		/// <returns>ApplicationCommandOptionBuilder to be chained</returns>
 		public ApplicationCommandOptionBuilder AddOptions(params ApplicationCommandOptionBuilder[] builders)
 		{
 			foreach (ApplicationCommandOptionBuilder builder in builders) AddOption(builder);
 			return this;
 		}
 
+		/// <summary>
+		/// Sets the method of this option. Can only be used for subcommands
+		/// </summary>
+		/// <param name="methodInfo">The method</param>
+		/// <returns>ApplicationCommandOptionBuilder to be chained</returns>
 		public ApplicationCommandOptionBuilder WithMethod(MethodInfo methodInfo)
 		{
-			if (Type is not (ApplicationCommandOptionType.SubCommand or ApplicationCommandOptionType.SubCommandGroup))
+			if (Type is not (ApplicationCommandOptionType.SubCommand))
 				throw new InvalidOperationException(
 					"Only slash command options of type SubCommand or SubCommandGroup can have minimum and maximum values added in them");
 
@@ -120,6 +167,11 @@ namespace DSharpPlus.SlashCommands.Entities
 			return this;
 		}
 
+		/// <summary>
+		/// Sets an autocomplete method for this option
+		/// </summary>
+		/// <param name="methodInfo">The autocomplete method</param>
+		/// <returns>ApplicationCommandOptionBuilder to be chained</returns>
 		public ApplicationCommandOptionBuilder WithAutocomplete(MethodInfo methodInfo)
 		{
 			if (Type is not (ApplicationCommandOptionType.Integer or ApplicationCommandOptionType.Number or
@@ -133,7 +185,10 @@ namespace DSharpPlus.SlashCommands.Entities
 			return this;
 		}
 
-
+		/// <summary>
+		/// Builds this ApplicationCommandOptionBuilder
+		/// </summary>
+		/// <returns>A DiscordApplicationCommandOption to be sent to Discord</returns>
 		public DiscordApplicationCommandOption Build() =>
 			new(Name, Description, Type, Required, Choices, Options?.Select(x => x.Build()), ChannelType,
 				AutoCompleteMethod != null, MinValue, MaxValue);

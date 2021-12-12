@@ -23,42 +23,76 @@ namespace DSharpPlus.SlashCommands.Entities
 			if (type == ApplicationCommandType.SlashCommand) Options = new List<ApplicationCommandOptionBuilder>();
 		}
 
+		/// <summary>
+		/// Sets the name of this ApplicationCommand.
+		/// </summary>
+		/// <param name="name">Name of the ApplicationCommand.</param>
+		/// <returns>The ApplicationCommandBuilder to be chained</returns>
 		public ApplicationCommandBuilder WithName(string name)
 		{
 			Name = name;
 			return this;
 		}
 
+		/// <summary>
+		/// Sets the description of this ApplicationCommand.
+		/// </summary>
+		/// <param name="description">Description of the ApplicationCommand.</param>
+		/// <returns>The ApplicationCommandBuilder to be chained</returns>
 		public ApplicationCommandBuilder WithDescription(string description)
 		{
 			Description = description;
 			return this;
 		}
 
+		/// <summary>
+		/// Sets if this command should be enabled by default
+		/// </summary>
+		/// <param name="enabledByDefault">If this command should be enabled by default.</param>
+		/// <returns>The ApplicationCommandBuilder to be chained</returns>
 		public ApplicationCommandBuilder WithDefaultPermission(bool enabledByDefault)
 		{
 			DefaultPermission = enabledByDefault;
 			return this;
 		}
 
+		/// <summary>
+		/// Adds an option to this ApplicationCommand
+		/// </summary>
+		/// <param name="builder">The option to add.</param>
+		/// <returns>The ApplicationCommandBuilder to be chained</returns>
 		public ApplicationCommandBuilder AddOption(ApplicationCommandOptionBuilder builder)
 		{
 			Options.Add(builder);
 			return this;
 		}
 
-		public ApplicationCommandBuilder AddOptions(params ApplicationCommandOptionBuilder[] builder)
+		/// <summary>
+		/// Adds multiple options to this ApplicationCommand
+		/// </summary>
+		/// <param name="builders">Array of options to add.</param>
+		/// <returns>The ApplicationCommandBuilder to be chained</returns>
+		public ApplicationCommandBuilder AddOptions(params ApplicationCommandOptionBuilder[] builders)
 		{
-			Options.AddRange(builder);
+			Options.AddRange(builders);
 			return this;
 		}
 
+		/// <summary>
+		/// Sets the method that should be called when this slash command is executed
+		/// </summary>
+		/// <param name="methodInfo">The method to run.</param>
+		/// <returns>The ApplicationCommandBuilder to be chained</returns>
 		public ApplicationCommandBuilder WithMethod(MethodInfo methodInfo)
 		{
 			Method = methodInfo;
 			return this;
 		}
 
+		/// <summary>
+		/// Builds this ApplicationCommandBuilder
+		/// </summary>
+		/// <returns>A DiscordApplicationCommand to be sent to Discord</returns>
 		public DiscordApplicationCommand Build() =>
 			new(Name, Description, Options?.Select(x => x.Build()), DefaultPermission, Type);
 	}

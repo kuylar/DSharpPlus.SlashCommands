@@ -51,11 +51,28 @@ namespace DSharpPlus.SlashCommands
 			_autocompleteExecuted = new AsyncEvent<SlashCommandsExtension, AutocompleteExecutedEventArgs>("AUTOCOMPLETE_EXECUTED", TimeSpan.Zero, client.EventErrorHandler);
 		}
 
+		/// <summary>
+		/// Register a command with a ApplicationCommandBuilder.
+		/// You have to run RefreshCommands if you add any commands after the Ready event
+		/// </summary>
+		/// <param name="command">ApplicationCommandBuilder to add</param>
+		/// <param name="guildId">The ID of the guild to add this command to</param>
 		public void RegisterCommand(ApplicationCommandBuilder command, ulong? guildId) =>
 			_unsubmittedCommands.Add((command, guildId ?? 0));
 
+		/// <summary>
+		/// Register a command module.
+		/// You have to run RefreshCommands if you add any commands after the Ready event
+		/// </summary>
+		/// <param name="guildId">The ID of the guild to add this command module to</param>
 		public void RegisterCommands<T>(ulong? guildId) => RegisterCommands(typeof(T), guildId);
 
+		/// <summary>
+		/// Register a command module.
+		/// You have to run RefreshCommands if you add any commands after the Ready event
+		/// </summary>
+		/// <param name="module">The ApplicationCommandModule to add</param>
+		/// <param name="guildId">The ID of the guild to add this command module to</param>
 		public void RegisterCommands(Type module, ulong? guildId)
 		{
 			if (module.GetCustomAttribute<SlashCommandGroupAttribute>() is not null)
@@ -179,6 +196,12 @@ namespace DSharpPlus.SlashCommands
 			}
 		}
 
+		/// <summary>
+		/// Automatically find and register all command modules from an assembly.
+		/// You have to run RefreshCommands if you add any commands after the Ready event
+		/// </summary>
+		/// <param name="assembly">The assembly to find and add the modules from</param>
+		/// <param name="guildId">The ID of the guild to add this command modules to</param>
 		public void RegisterCommands(Assembly assembly, ulong? guildId)
 		{
 			IEnumerable<Type> types = assembly.ExportedTypes.Where(xt =>
@@ -189,11 +212,20 @@ namespace DSharpPlus.SlashCommands
 				RegisterCommands(xt, guildId);
 		}
 
+		/// <summary>
+		/// Resubmit all slash commands to Discord.
+		/// </summary>
 		public async Task RefreshCommands()
 		{
 			await PushCommands();
 			foreach (ulong guildId in _client.Guilds.Keys) await PushCommands(guildId);
 		}
+
+		/// <summary>
+		/// Resubmit all slash commands for a specific guild to Discord.
+		/// </summary>
+		/// <param name="guildId">The ID of the guild. Use <code>0</code> to only resubmit global commands</param>
+		public async Task RefreshCommands(ulong guildId) => await PushCommands(guildId);
 
 		private async Task OnReady(DiscordClient sender, ReadyEventArgs args) => await PushCommands();
 
