@@ -363,8 +363,8 @@ namespace DSharpPlus.SlashCommands
 					type = ApplicationCommandOptionType.Role;
 				else if (parameterInfo.ParameterType == typeof(SnowflakeObject))
 					type = ApplicationCommandOptionType.Mentionable;
-				else if (parameterInfo.ParameterType == typeof(Enum))
-					throw new ArgumentException("Enums are not supported yet"); // todo
+				else if (parameterInfo.ParameterType.IsEnum)
+					type = ApplicationCommandOptionType.String;
 				else
 					throw new ArgumentOutOfRangeException(nameof(parameterInfo.ParameterType),
 						parameterInfo.ParameterType,
@@ -375,6 +375,27 @@ namespace DSharpPlus.SlashCommands
 					.WithDescription(optionAttr?.Description)
 					.IsRequired(!parameterInfo.IsOptional);
 
+				Type enumType = parameterInfo.ParameterType;
+				if (enumType.IsEnum)
+				{
+					string[] names = enumType.GetEnumNames();
+					Array values = enumType.GetEnumValues();
+
+					for (int i = 0; i < names.Length; i++)
+					{
+						string enumName = names[i];
+						object value = values.GetValue(i);
+						
+						MemberInfo memberInfo =    
+							enumType.GetMember(value.ToString()).First();    
+						
+						ChoiceNameAttribute nameAttr =    
+							memberInfo.GetCustomAttribute<ChoiceNameAttribute>();
+
+						option.AddChoice(nameAttr is not null ? nameAttr.Name : enumName, enumName);
+					}
+				}
+				
 				foreach (Attribute attribute in parameterInfo.GetCustomAttributes())
 					switch (attribute)
 					{
@@ -412,7 +433,10 @@ namespace DSharpPlus.SlashCommands
 				string paramName = param.GetCustomAttribute<OptionAttribute>()?.Name;
 				DiscordInteractionDataOption option = options.FirstOrDefault(x => x.Name == paramName);
 
-				objects.Add(await ConvertOptionToType(option, param.ParameterType, resolved));
+				if (param.ParameterType.IsEnum)
+					objects.Add(Enum.Parse(param.ParameterType, option?.Value as string ?? string.Empty));
+				else
+					objects.Add(await ConvertOptionToType(option, param.ParameterType, resolved));
 			}
 
 			return objects;

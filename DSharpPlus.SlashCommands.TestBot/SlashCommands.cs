@@ -112,5 +112,18 @@ namespace DSharpPlus.SlashCommands.TestBot
 			string option2) =>
 			await ctx.CreateResponseAsync($"You chose:\n{option1}\n{option2}");
 
+		public enum CoolEnum
+		{
+			[ChoiceName("Option with a name attribute")]
+			OptionWithName,
+			OptionWithoutAName
+		}
+		
+		[SlashCommand("enum", "Enum")]
+		public async Task EnumCommand(InteractionContext ctx,
+			[Option("enum", "Fun fact: this will fail")]
+			CoolEnum option) =>
+			await ctx.CreateResponseAsync($"You chose:\n{option}");
+
 	}
 }
