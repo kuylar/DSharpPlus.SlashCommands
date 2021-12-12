@@ -6,6 +6,8 @@ using System.Threading.Tasks;
 using DSharpPlus.Entities;
 using DSharpPlus.EventArgs;
 using DSharpPlus.SlashCommands.Entities;
+using DSharpPlus.SlashCommands.EventArgs;
+using Emzi0767.Utilities;
 
 namespace DSharpPlus.SlashCommands
 {
@@ -14,8 +16,8 @@ namespace DSharpPlus.SlashCommands
 		private DiscordClient _client;
 		private IServiceProvider _services;
 
-		private Dictionary<ulong, ApplicationCommand> _commands;
-		private List<(ApplicationCommandBuilder Command, ulong GuildId)> _unsubmittedCommands;
+		private Dictionary<ulong, ApplicationCommand> _commands = new();
+		private List<(ApplicationCommandBuilder Command, ulong GuildId)> _unsubmittedCommands = new();
 		
 		public Dictionary<ulong, ApplicationCommand> RegisteredCommands => _commands;
 
@@ -31,8 +33,6 @@ namespace DSharpPlus.SlashCommands
 				throw new InvalidOperationException("DONT RUN SETUP MORE THAN ONCE");
 
 			_client = client;
-			_unsubmittedCommands = new List<(ApplicationCommandBuilder, ulong)>();
-			_commands = new Dictionary<ulong, ApplicationCommand>();
 
 			_client.Ready += OnReady;
 			_client.GuildAvailable += OnGuildAvailable;
@@ -40,6 +40,15 @@ namespace DSharpPlus.SlashCommands
 			_client.InteractionCreated += HandleSlashCommand;
 			_client.ContextMenuInteractionCreated += HandleContextMenu;
 			_client.InteractionCreated += HandleAutocomplete;
+			
+			_slashError = new AsyncEvent<SlashCommandsExtension, SlashCommandErrorEventArgs>("SLASHCOMMAND_ERRORED", TimeSpan.Zero, client.EventErrorHandler);
+			_slashInvoked = new AsyncEvent<SlashCommandsExtension, SlashCommandInvokedEventArgs>("SLASHCOMMAND_RECEIVED", TimeSpan.Zero, client.EventErrorHandler);
+			_slashExecuted = new AsyncEvent<SlashCommandsExtension, SlashCommandExecutedEventArgs>("SLASHCOMMAND_EXECUTED", TimeSpan.Zero, client.EventErrorHandler);
+			_contextMenuErrored = new AsyncEvent<SlashCommandsExtension, ContextMenuErrorEventArgs>("CONTEXTMENU_ERRORED", TimeSpan.Zero, client.EventErrorHandler);
+			_contextMenuExecuted = new AsyncEvent<SlashCommandsExtension, ContextMenuExecutedEventArgs>("CONTEXTMENU_EXECUTED", TimeSpan.Zero, client.EventErrorHandler);
+			_contextMenuInvoked = new AsyncEvent<SlashCommandsExtension, ContextMenuInvokedEventArgs>("CONTEXTMENU_RECEIVED", TimeSpan.Zero, client.EventErrorHandler);
+			_autocompleteErrored = new AsyncEvent<SlashCommandsExtension, AutocompleteErrorEventArgs>("AUTOCOMPLETE_ERRORED", TimeSpan.Zero, client.EventErrorHandler);
+			_autocompleteExecuted = new AsyncEvent<SlashCommandsExtension, AutocompleteExecutedEventArgs>("AUTOCOMPLETE_EXECUTED", TimeSpan.Zero, client.EventErrorHandler);
 		}
 
 		public void RegisterCommand(ApplicationCommandBuilder command, ulong? guildId) =>
@@ -208,6 +217,8 @@ namespace DSharpPlus.SlashCommands
 				_commands.Add(dac.Id, new ApplicationCommand(commands.First(x => x.Name == dac.Name), guildId));
 		}
 
+		#region Handling
+
 		// ReSharper disable AssignNullToNotNullAttribute
 		// ReSharper disable PossibleNullReferenceException
 		private Task HandleSlashCommand(DiscordClient sender, InteractionCreateEventArgs e)
@@ -259,17 +270,36 @@ namespace DSharpPlus.SlashCommands
 
 				argumentsList.AddRange(options);
 
-
-				MethodInfo method = _commands[e.Interaction.Data.Id].Methods[methodName];
-				ApplicationCommandModule instance =
-					(ApplicationCommandModule)Activator.CreateInstance(method.DeclaringType);
-
-				bool shouldRun = await instance.BeforeSlashExecutionAsync(ctx);
-
-				if (shouldRun)
+				try
 				{
-					await (Task)method.Invoke(instance, argumentsList.ToArray());
-					await instance.AfterSlashExecutionAsync(ctx);
+					await _slashInvoked.InvokeAsync(this, new SlashCommandInvokedEventArgs()
+					{
+						Context = ctx
+					});
+
+					MethodInfo method = _commands[e.Interaction.Data.Id].Methods[methodName];
+					ApplicationCommandModule instance =
+						(ApplicationCommandModule)Activator.CreateInstance(method.DeclaringType);
+
+					bool shouldRun = await instance.BeforeSlashExecutionAsync(ctx);
+
+					if (shouldRun)
+					{
+						await (Task)method.Invoke(instance, argumentsList.ToArray());
+						await instance.AfterSlashExecutionAsync(ctx);
+						await _slashExecuted.InvokeAsync(this, new SlashCommandExecutedEventArgs()
+						{
+							Context = ctx
+						});
+					}
+				}
+				catch (Exception exception)
+				{
+					await _slashError.InvokeAsync(this, new SlashCommandErrorEventArgs()
+					{
+						Context = ctx,
+						Exception = exception
+					});
 				}
 			});
 			return Task.CompletedTask;
@@ -301,12 +331,33 @@ namespace DSharpPlus.SlashCommands
 				ApplicationCommandModule instance =
 					(ApplicationCommandModule)Activator.CreateInstance(method.DeclaringType);
 
-				bool shouldRun = await instance.BeforeContextMenuExecutionAsync(ctx);
 
-				if (shouldRun)
+				try
 				{
-					await (Task)method.Invoke(instance, new object[] { ctx });
-					await instance.AfterContextMenuExecutionAsync(ctx);
+					await _contextMenuInvoked.InvokeAsync(this, new ContextMenuInvokedEventArgs()
+					{
+						Context = ctx
+					});
+					
+					bool shouldRun = await instance.BeforeContextMenuExecutionAsync(ctx);
+
+					if (shouldRun)
+					{
+						await (Task)method.Invoke(instance, new object[] { ctx });
+						await instance.AfterContextMenuExecutionAsync(ctx);
+						await _contextMenuExecuted.InvokeAsync(this, new ContextMenuExecutedEventArgs()
+						{
+							Context = ctx
+						});
+					}
+				}
+				catch (Exception exception)
+				{
+					await _contextMenuErrored.InvokeAsync(this, new ContextMenuErrorEventArgs()
+					{
+						Context = ctx,
+						Exception = exception
+					});
 				}
 			});
 			return Task.CompletedTask;
@@ -340,20 +391,36 @@ namespace DSharpPlus.SlashCommands
 					SlashCommandsExtension = this
 				};
 
-
 				MethodInfo method = _commands[e.Interaction.Data.Id].AutocompleteMethods[focusedOption.Name];
 				IAutocompleteProvider instance =
 					(IAutocompleteProvider)Activator.CreateInstance(method.DeclaringType);
 
-				IEnumerable<DiscordAutoCompleteChoice> choices = await instance.Provider(ctx);
+				try
+				{
+					IEnumerable<DiscordAutoCompleteChoice> choices = await instance.Provider(ctx);
 
-				await e.Interaction.CreateResponseAsync(InteractionResponseType.AutoCompleteResult,
-					new DiscordInteractionResponseBuilder().AddAutoCompleteChoices(choices));
+					await e.Interaction.CreateResponseAsync(InteractionResponseType.AutoCompleteResult,
+						new DiscordInteractionResponseBuilder().AddAutoCompleteChoices(choices));
+					await _autocompleteExecuted.InvokeAsync(this, new AutocompleteExecutedEventArgs()
+					{
+						Context = ctx
+					});	
+				}
+				catch (Exception exception)
+				{
+					await _autocompleteErrored.InvokeAsync(this, new AutocompleteErrorEventArgs()
+					{
+						Context = ctx,
+						Exception = exception
+					});
+				}
 			});
 			return Task.CompletedTask;
 		}
 		// ReSharper restore AssignNullToNotNullAttribute
 		// ReSharper restore PossibleNullReferenceException
+
+		#endregion
 
 		private ApplicationCommandOptionBuilder[] ParseParameters(IEnumerable<ParameterInfo> parameters)
 		{
@@ -514,6 +581,74 @@ namespace DSharpPlus.SlashCommands
 			throw new ArgumentOutOfRangeException(nameof(type), type,
 				"Slash command option types can be one of string, long, bool, double, DiscordUser, DiscordChannel, DiscordRole, SnowflakeObject, Enum");
 		}
+
+		#region Events
+		
+		public event AsyncEventHandler<SlashCommandsExtension, SlashCommandErrorEventArgs> SlashCommandErrored
+		{
+			add => _slashError.Register(value);
+			remove { _slashError.Unregister(value); }
+		}
+
+		private AsyncEvent<SlashCommandsExtension, SlashCommandErrorEventArgs> _slashError;
+
+		public event AsyncEventHandler<SlashCommandsExtension, SlashCommandInvokedEventArgs> SlashCommandInvoked
+		{
+			add => _slashInvoked.Register(value);
+			remove => _slashInvoked.Unregister(value);
+		}
+
+		private AsyncEvent<SlashCommandsExtension, SlashCommandInvokedEventArgs> _slashInvoked;
+
+		public event AsyncEventHandler<SlashCommandsExtension, SlashCommandExecutedEventArgs> SlashCommandExecuted
+		{
+			add => _slashExecuted.Register(value);
+			remove => _slashExecuted.Unregister(value);
+		}
+
+		private AsyncEvent<SlashCommandsExtension, SlashCommandExecutedEventArgs> _slashExecuted;
+
+		public event AsyncEventHandler<SlashCommandsExtension, ContextMenuErrorEventArgs> ContextMenuErrored
+		{
+			add => _contextMenuErrored.Register(value);
+			remove => _contextMenuErrored.Unregister(value);
+		}
+
+		private AsyncEvent<SlashCommandsExtension, ContextMenuErrorEventArgs> _contextMenuErrored;
+
+		public event AsyncEventHandler<SlashCommandsExtension, ContextMenuInvokedEventArgs> ContextMenuInvoked
+		{
+			add => _contextMenuInvoked.Register(value);
+			remove => _contextMenuInvoked.Unregister(value);
+		}
+
+		private AsyncEvent<SlashCommandsExtension, ContextMenuInvokedEventArgs> _contextMenuInvoked;
+
+		public event AsyncEventHandler<SlashCommandsExtension, ContextMenuExecutedEventArgs> ContextMenuExecuted
+		{
+			add => _contextMenuExecuted.Register(value);
+			remove => _contextMenuExecuted.Unregister(value);
+		}
+
+		private AsyncEvent<SlashCommandsExtension, ContextMenuExecutedEventArgs> _contextMenuExecuted;
+
+		public event AsyncEventHandler<SlashCommandsExtension, AutocompleteErrorEventArgs> AutocompleteErrored
+		{
+			add => _autocompleteErrored.Register(value);
+			remove => _autocompleteErrored.Register(value);
+		}
+
+		private AsyncEvent<SlashCommandsExtension, AutocompleteErrorEventArgs> _autocompleteErrored;
+
+		public event AsyncEventHandler<SlashCommandsExtension, AutocompleteExecutedEventArgs> AutocompleteExecuted
+		{
+			add => _autocompleteExecuted.Register(value);
+			remove => _autocompleteExecuted.Register(value);
+		}
+
+		private AsyncEvent<SlashCommandsExtension, AutocompleteExecutedEventArgs> _autocompleteExecuted;
+
+		#endregion
 	}
 }
 
