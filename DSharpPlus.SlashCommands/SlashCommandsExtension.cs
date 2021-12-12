@@ -201,20 +201,23 @@ namespace DSharpPlus.SlashCommands
 
 		private async Task PushCommands(ulong guildId = 0)
 		{
-			ApplicationCommandBuilder[] commands =
-				_unsubmittedCommands.Where(x => x.GuildId == guildId).Select(x => x.Command).ToArray();
-			IEnumerable<DiscordApplicationCommand> dcCommands;
-			if (guildId == 0)
-				dcCommands = await _client.BulkOverwriteGlobalApplicationCommandsAsync(commands.Select(x => x.Build()));
-			else
-				dcCommands = await _client.BulkOverwriteGuildApplicationCommandsAsync(guildId,
-					commands.Select(x => x.Build()));
-			
-			foreach ((ulong key, ApplicationCommand _) in _commands.Where(x => x.Value.GuildId == guildId).ToArray())
-				_commands.Remove(key);
+			Task.Run(async () =>
+			{
+				ApplicationCommandBuilder[] commands =
+					_unsubmittedCommands.Where(x => x.GuildId == guildId).Select(x => x.Command).ToArray();
+				IEnumerable<DiscordApplicationCommand> dcCommands;
+				if (guildId == 0)
+					dcCommands = await _client.BulkOverwriteGlobalApplicationCommandsAsync(commands.Select(x => x.Build()));
+				else
+					dcCommands = await _client.BulkOverwriteGuildApplicationCommandsAsync(guildId,
+						commands.Select(x => x.Build()));
+				
+				foreach ((ulong key, ApplicationCommand _) in _commands.Where(x => x.Value.GuildId == guildId).ToArray())
+					_commands.Remove(key);
 
-			foreach (DiscordApplicationCommand dac in dcCommands)
-				_commands.Add(dac.Id, new ApplicationCommand(commands.First(x => x.Name == dac.Name), guildId));
+				foreach (DiscordApplicationCommand dac in dcCommands)
+					_commands.Add(dac.Id, new ApplicationCommand(commands.First(x => x.Name == dac.Name), guildId));
+			});
 		}
 
 		#region Handling
