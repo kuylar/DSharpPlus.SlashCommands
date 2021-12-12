@@ -8,6 +8,7 @@ using DSharpPlus.EventArgs;
 using DSharpPlus.SlashCommands.Entities;
 using DSharpPlus.SlashCommands.EventArgs;
 using Emzi0767.Utilities;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace DSharpPlus.SlashCommands
 {
@@ -16,6 +17,7 @@ namespace DSharpPlus.SlashCommands
 		private DiscordClient _client;
 		private IServiceProvider _services;
 
+		private List<object> _singletonModules = new();
 		private Dictionary<ulong, ApplicationCommand> _commands = new();
 		private List<(ApplicationCommandBuilder Command, ulong GuildId)> _unsubmittedCommands = new();
 		
@@ -58,6 +60,14 @@ namespace DSharpPlus.SlashCommands
 
 		public void RegisterCommands(Type module, ulong? guildId)
 		{
+			SlashModuleLifespan moduleLifespan =
+				(module.GetCustomAttribute<SlashModuleLifespanAttribute>() != null
+					? module.GetCustomAttribute<SlashModuleLifespanAttribute>()?.Lifespan
+					: SlashModuleLifespan.Singleton) ?? SlashModuleLifespan.Singleton;
+			
+			if (moduleLifespan == SlashModuleLifespan.Singleton)
+				_singletonModules.Add(CreateInstance(module, _services));
+
 			if (module.GetCustomAttribute<SlashCommandGroupAttribute>() is not null)
 			{
 				SlashCommandGroupAttribute gAttr = module.GetCustomAttribute<SlashCommandGroupAttribute>();
@@ -221,7 +231,92 @@ namespace DSharpPlus.SlashCommands
 
 		// ReSharper disable AssignNullToNotNullAttribute
 		// ReSharper disable PossibleNullReferenceException
-		private Task HandleSlashCommand(DiscordClient sender, InteractionCreateEventArgs e)
+		private T GetInstance<T>(MethodInfo method)
+		{
+			Type t = typeof(T);
+			object classInstance;
+			var moduleLifespan = (t.GetCustomAttribute<SlashModuleLifespanAttribute>() != null ? t.GetCustomAttribute<SlashModuleLifespanAttribute>()?.Lifespan : SlashModuleLifespan.Singleton) ?? SlashModuleLifespan.Singleton;
+			switch (moduleLifespan)
+			{
+				case SlashModuleLifespan.Scoped:
+					//Accounts for static methods and adds DI
+					classInstance = method.IsStatic ? ActivatorUtilities.CreateInstance(_services.CreateScope().ServiceProvider, t) : CreateInstance(t, _services.CreateScope().ServiceProvider);
+					break;
+
+				case SlashModuleLifespan.Transient:
+					//Accounts for static methods and adds DI
+					classInstance = method.IsStatic ? ActivatorUtilities.CreateInstance(_services, t) : CreateInstance(t, _services);
+					break;
+
+				//If singleton, gets it from the singleton list
+				case SlashModuleLifespan.Singleton:
+					classInstance = _singletonModules.Where(x => x is T);
+					break;
+
+				default:
+					throw new Exception($"An unknown {nameof(SlashModuleLifespanAttribute)} scope was specified on command {method.DeclaringType.FullName}.{method.Name}");
+			}
+
+			return (T)classInstance;
+		}
+		
+		 //Property injection copied over from CommandsNext
+        internal object CreateInstance(Type t, IServiceProvider services)
+        {
+            var ti = t.GetTypeInfo();
+            var constructors = ti.DeclaredConstructors
+                .Where(xci => xci.IsPublic)
+                .ToArray();
+
+            if (constructors.Length != 1)
+                throw new ArgumentException("Specified type does not contain a public constructor or contains more than one public constructor.");
+
+            var constructor = constructors[0];
+            var constructorArgs = constructor.GetParameters();
+            var args = new object[constructorArgs.Length];
+
+            if (constructorArgs.Length != 0 && services == null)
+                throw new InvalidOperationException("Dependency collection needs to be specified for parameterized constructors.");
+
+            // inject via constructor
+            if (constructorArgs.Length != 0)
+                for (var i = 0; i < args.Length; i++)
+                    args[i] = services.GetRequiredService(constructorArgs[i].ParameterType);
+
+            var moduleInstance = Activator.CreateInstance(t, args);
+
+            // inject into properties
+            var props = t.GetRuntimeProperties().Where(xp => xp.CanWrite && xp.SetMethod != null && !xp.SetMethod.IsStatic && xp.SetMethod.IsPublic);
+            foreach (var prop in props)
+            {
+                if (prop.GetCustomAttribute<DontInjectAttribute>() != null)
+                    continue;
+
+                var service = services.GetService(prop.PropertyType);
+                if (service == null)
+                    continue;
+
+                prop.SetValue(moduleInstance, service);
+            }
+
+            // inject into fields
+            var fields = t.GetRuntimeFields().Where(xf => !xf.IsInitOnly && !xf.IsStatic && xf.IsPublic);
+            foreach (var field in fields)
+            {
+                if (field.GetCustomAttribute<DontInjectAttribute>() != null)
+                    continue;
+
+                var service = services.GetService(field.FieldType);
+                if (service == null)
+                    continue;
+
+                field.SetValue(moduleInstance, service);
+            }
+
+            return moduleInstance;
+        }
+
+        private Task HandleSlashCommand(DiscordClient sender, InteractionCreateEventArgs e)
 		{
 			if (e.Interaction.Type != InteractionType.ApplicationCommand) return Task.CompletedTask;
 			Task.Run(async () =>
@@ -272,14 +367,13 @@ namespace DSharpPlus.SlashCommands
 
 				try
 				{
-					await _slashInvoked.InvokeAsync(this, new SlashCommandInvokedEventArgs()
+					await _slashInvoked.InvokeAsync(this, new SlashCommandInvokedEventArgs
 					{
 						Context = ctx
 					});
 
 					MethodInfo method = _commands[e.Interaction.Data.Id].Methods[methodName];
-					ApplicationCommandModule instance =
-						(ApplicationCommandModule)Activator.CreateInstance(method.DeclaringType);
+					ApplicationCommandModule instance = GetInstance<ApplicationCommandModule>(method);
 
 					bool shouldRun = await instance.BeforeSlashExecutionAsync(ctx);
 
@@ -287,7 +381,7 @@ namespace DSharpPlus.SlashCommands
 					{
 						await (Task)method.Invoke(instance, argumentsList.ToArray());
 						await instance.AfterSlashExecutionAsync(ctx);
-						await _slashExecuted.InvokeAsync(this, new SlashCommandExecutedEventArgs()
+						await _slashExecuted.InvokeAsync(this, new SlashCommandExecutedEventArgs
 						{
 							Context = ctx
 						});
@@ -295,7 +389,7 @@ namespace DSharpPlus.SlashCommands
 				}
 				catch (Exception exception)
 				{
-					await _slashError.InvokeAsync(this, new SlashCommandErrorEventArgs()
+					await _slashError.InvokeAsync(this, new SlashCommandErrorEventArgs
 					{
 						Context = ctx,
 						Exception = exception
@@ -328,13 +422,11 @@ namespace DSharpPlus.SlashCommands
 				};
 
 				MethodInfo method = _commands[e.Interaction.Data.Id].Methods[string.Empty];
-				ApplicationCommandModule instance =
-					(ApplicationCommandModule)Activator.CreateInstance(method.DeclaringType);
-
+				ApplicationCommandModule instance = GetInstance<ApplicationCommandModule>(method);
 
 				try
 				{
-					await _contextMenuInvoked.InvokeAsync(this, new ContextMenuInvokedEventArgs()
+					await _contextMenuInvoked.InvokeAsync(this, new ContextMenuInvokedEventArgs
 					{
 						Context = ctx
 					});
@@ -345,7 +437,7 @@ namespace DSharpPlus.SlashCommands
 					{
 						await (Task)method.Invoke(instance, new object[] { ctx });
 						await instance.AfterContextMenuExecutionAsync(ctx);
-						await _contextMenuExecuted.InvokeAsync(this, new ContextMenuExecutedEventArgs()
+						await _contextMenuExecuted.InvokeAsync(this, new ContextMenuExecutedEventArgs
 						{
 							Context = ctx
 						});
@@ -353,7 +445,7 @@ namespace DSharpPlus.SlashCommands
 				}
 				catch (Exception exception)
 				{
-					await _contextMenuErrored.InvokeAsync(this, new ContextMenuErrorEventArgs()
+					await _contextMenuErrored.InvokeAsync(this, new ContextMenuErrorEventArgs
 					{
 						Context = ctx,
 						Exception = exception
@@ -401,14 +493,14 @@ namespace DSharpPlus.SlashCommands
 
 					await e.Interaction.CreateResponseAsync(InteractionResponseType.AutoCompleteResult,
 						new DiscordInteractionResponseBuilder().AddAutoCompleteChoices(choices));
-					await _autocompleteExecuted.InvokeAsync(this, new AutocompleteExecutedEventArgs()
+					await _autocompleteExecuted.InvokeAsync(this, new AutocompleteExecutedEventArgs
 					{
 						Context = ctx
 					});	
 				}
 				catch (Exception exception)
 				{
-					await _autocompleteErrored.InvokeAsync(this, new AutocompleteErrorEventArgs()
+					await _autocompleteErrored.InvokeAsync(this, new AutocompleteErrorEventArgs
 					{
 						Context = ctx,
 						Exception = exception

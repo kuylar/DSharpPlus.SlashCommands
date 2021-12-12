@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Threading.Tasks;
 using DSharpPlus.Exceptions;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace DSharpPlus.SlashCommands.TestBot
@@ -24,12 +25,19 @@ namespace DSharpPlus.SlashCommands.TestBot
 				Token = token
 			});
 
-			SlashCommandsExtension slash = _client.UseSlashCommands();
+			IServiceProvider services = new ServiceCollection()
+				.AddSingleton<Random>()
+				.BuildServiceProvider();
+			SlashCommandsExtension slash = _client.UseSlashCommands(new SlashCommandsConfiguration()
+			{
+				Services = services
+			});
 
 			slash.RegisterCommands<SlashCommands>(917263628846108683);
 			slash.RegisterCommands<OneLevelGroup>(917263628846108683);
 			slash.RegisterCommands<TwoLevelGroup>(917263628846108683);
 			slash.RegisterCommands<ContextMenus>(917263628846108683);
+			slash.RegisterCommands<DependencyInjection>(917263628846108683);
 
 			_client.ClientErrored += (_, args) =>
 			{
