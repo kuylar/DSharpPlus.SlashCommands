@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Threading.Tasks;
 using DSharpPlus.Exceptions;
 using Microsoft.Extensions.Logging;
@@ -29,7 +30,17 @@ namespace DSharpPlus.SlashCommands.TestBot
 			slash.RegisterCommands<SlashCommands>(917263628846108683);
 			slash.RegisterCommands<OneLevelGroup>(917263628846108683);
 			slash.RegisterCommands<TwoLevelGroup>(917263628846108683);
+			slash.RegisterCommands<PreExecutionChecks>(917263628846108683);
 			slash.RegisterCommands<ContextMenus>(917263628846108683);
+
+			slash.SlashCommandErrored += (sender, args) =>
+			{
+				if (args.Exception is SlashExecutionChecksFailedException fail)
+					args.Context.CreateResponseAsync(string.Join("\n", fail.FailedChecks.Select(x => x.GetType().Name)));
+				else
+					args.Context.CreateResponseAsync(Formatter.Sanitize(args.Exception.ToString()));
+				return Task.CompletedTask;
+			};
 
 			_client.ClientErrored += (_, args) =>
 			{
