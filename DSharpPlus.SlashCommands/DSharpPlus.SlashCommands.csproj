@@ -2,6 +2,15 @@
 
     <PropertyGroup>
         <TargetFramework>net5.0</TargetFramework>
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+        <PackageId>Kuylar.DSharpPlus.SlashCommands</PackageId>
+        <Title>Kuylar.DSharpPlus.SlashCommands</Title>
+        <Authors>kuylar</Authors>
+        <Description>A "better" slash commands extension based on the official one</Description>
+        <PackageProjectUrl>https://github.com/kuylar/DSharpPlus.SlashCommands</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/kuylar/DSharpPlus.SlashCommands</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageTags>discord, dsharpplus</PackageTags>
     </PropertyGroup>
 
     <ItemGroup>
