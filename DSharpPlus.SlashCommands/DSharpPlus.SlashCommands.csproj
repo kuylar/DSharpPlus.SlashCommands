@@ -11,6 +11,7 @@
         <RepositoryUrl>https://github.com/kuylar/DSharpPlus.SlashCommands</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageTags>discord, dsharpplus</PackageTags>
+        <PackageVersion>1.0.1</PackageVersion>
     </PropertyGroup>
 
     <ItemGroup>
