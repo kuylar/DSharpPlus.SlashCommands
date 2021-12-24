@@ -292,9 +292,9 @@ namespace DSharpPlus.SlashCommands
 					User = e.Interaction.User,
 					CommandName = e.Interaction.Data.Name,
 					InteractionId = e.Interaction.Id,
-					ResolvedChannelMentions = e.Interaction.Data.Resolved?.Channels.Values.ToList(),
-					ResolvedUserMentions = e.Interaction.Data.Resolved?.Users.Values.ToList(),
-					ResolvedRoleMentions = e.Interaction.Data.Resolved?.Roles.Values.ToList(),
+					ResolvedChannelMentions = e.Interaction.Data.Resolved?.Channels?.Values.ToList(),
+					ResolvedUserMentions = e.Interaction.Data.Resolved?.Users?.Values.ToList(),
+					ResolvedRoleMentions = e.Interaction.Data.Resolved?.Roles?.Values.ToList(),
 					SlashCommandsExtension = this
 				};
 
