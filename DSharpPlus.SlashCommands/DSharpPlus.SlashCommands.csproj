@@ -9,6 +9,7 @@
         <Description>A "better" slash commands extension based on the official one</Description>
         <PackageProjectUrl>https://github.com/kuylar/DSharpPlus.SlashCommands</PackageProjectUrl>
         <RepositoryUrl>https://github.com/kuylar/DSharpPlus.SlashCommands</RepositoryUrl>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <RepositoryType>git</RepositoryType>
         <PackageTags>discord, dsharpplus</PackageTags>
         <PackageVersion>1.0.2</PackageVersion>
