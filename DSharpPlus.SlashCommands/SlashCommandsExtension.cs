@@ -314,7 +314,7 @@ namespace DSharpPlus.SlashCommands
 
 					MethodInfo method = _commands[e.Interaction.Data.Id].Methods[methodName];
 					ApplicationCommandModule instance =
-						(ApplicationCommandModule)Activator.CreateInstance(method.DeclaringType);
+						(ApplicationCommandModule)InstanceCreator.CreateInstance(method.DeclaringType, _services);
 
 					await PreExecutionChecks(method, ctx);
 					
