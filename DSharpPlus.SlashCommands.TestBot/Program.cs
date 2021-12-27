@@ -30,6 +30,7 @@ namespace DSharpPlus.SlashCommands.TestBot
 			slash.RegisterCommands<SlashCommands>(917263628846108683);
 			slash.RegisterCommands<OneLevelGroup>(917263628846108683);
 			slash.RegisterCommands<TwoLevelGroup>(917263628846108683);
+			slash.RegisterCommands<WrappedGroup>(917263628846108683);
 			slash.RegisterCommands<PreExecutionChecks>(917263628846108683);
 			slash.RegisterCommands<ContextMenus>(917263628846108683);
 

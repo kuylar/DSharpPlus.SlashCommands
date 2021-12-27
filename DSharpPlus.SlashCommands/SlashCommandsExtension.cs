@@ -149,6 +149,82 @@ namespace DSharpPlus.SlashCommands
 
 				RegisterCommand(command, guildId);
 			}
+			else if (module.GetNestedTypes().Any(x => x.GetCustomAttribute<SlashCommandGroupAttribute>() is not null))
+			{
+				foreach (Type groupType in module.GetNestedTypes()
+					.Where(x => x.GetCustomAttribute<SlashCommandGroupAttribute>() is not null))
+				{
+					SlashCommandGroupAttribute gAttr = groupType.GetCustomAttribute<SlashCommandGroupAttribute>();
+					if (gAttr == null) return; // shut up rider
+					ApplicationCommandBuilder command =
+						new ApplicationCommandBuilder(ApplicationCommandType.SlashCommand)
+							.WithName(gAttr.Name)
+							.WithDescription(gAttr.Description);
+
+					if (groupType.GetNestedTypes()
+							.Any(x => x.GetCustomAttribute<SlashCommandGroupAttribute>() is not null))
+						// two-level groups
+						foreach (Type g in groupType.GetNestedTypes())
+						{
+							SlashCommandGroupAttribute sGAttr = g.GetCustomAttribute<SlashCommandGroupAttribute>();
+							if (sGAttr == null) return; // shut up rider
+
+							ApplicationCommandOptionBuilder group =
+								new ApplicationCommandOptionBuilder(ApplicationCommandOptionType.SubCommandGroup)
+									.WithName(sGAttr.Name)
+									.WithDescription(sGAttr.Description);
+
+							foreach (MethodInfo method in g.GetMethods()
+								.Where(x => x.GetCustomAttribute<SlashCommandAttribute>() != null))
+							{
+								SlashCommandAttribute attr = method.GetCustomAttribute<SlashCommandAttribute>();
+
+								if (attr == null) return; // shut up rider
+
+								ApplicationCommandOptionBuilder subcommand =
+									new ApplicationCommandOptionBuilder(ApplicationCommandOptionType.SubCommand)
+										.WithName(attr.Name)
+										.WithDescription(attr.Description)
+										.WithMethod(method);
+
+								if (method.GetParameters()[0].ParameterType != typeof(InteractionContext))
+									throw new ArgumentException(
+										"The first argument on slash commands must be InteractionContext");
+
+								subcommand.AddOptions(ParseParameters(method.GetParameters().Skip(1)));
+
+								group.AddOption(subcommand);
+							}
+
+							command.AddOption(group);
+						}
+					else
+						// one-level groups
+						foreach (MethodInfo method in groupType.GetMethods()
+							.Where(x => x.GetCustomAttribute<SlashCommandAttribute>() != null))
+						{
+							SlashCommandAttribute attr = method.GetCustomAttribute<SlashCommandAttribute>();
+
+							if (attr == null) return; // shut up rider
+
+							ApplicationCommandOptionBuilder subcommand =
+								new ApplicationCommandOptionBuilder(ApplicationCommandOptionType.SubCommand)
+									.WithName(attr.Name)
+									.WithDescription(attr.Description)
+									.WithMethod(method);
+
+							if (method.GetParameters()[0].ParameterType != typeof(InteractionContext))
+								throw new ArgumentException(
+									"The first argument on slash commands must be InteractionContext");
+
+							subcommand.AddOptions(ParseParameters(method.GetParameters().Skip(1)));
+
+							command.AddOption(subcommand);
+						}
+
+					RegisterCommand(command, guildId);
+				}
+			} 
 			else
 			{
 				// normal commands
