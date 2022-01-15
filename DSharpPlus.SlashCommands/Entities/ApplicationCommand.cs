@@ -19,33 +19,37 @@ namespace DSharpPlus.SlashCommands.Entities
 			Methods = new Dictionary<string, MethodInfo>();
 			AutocompleteMethods = new Dictionary<string, MethodInfo>();
 
-			if (builder.Options?.FirstOrDefault()?.Type is ApplicationCommandOptionType.SubCommand)
+			if (builder.Options != null && builder.Options.Any() && builder.Options.First().Type is ApplicationCommandOptionType.SubCommand or ApplicationCommandOptionType
+				.SubCommandGroup)
 			{
 				foreach (ApplicationCommandOptionBuilder option in builder.Options)
-				{
-					Methods.Add(option.Name, option.Method);
-					string optionName = option.Name + " ";
-					foreach (ApplicationCommandOptionBuilder autocompleteOption in option.Options.Where(x =>
-						x.AutoCompleteMethod != null))
-						AutocompleteMethods.Add(optionName + autocompleteOption.Name,
-							autocompleteOption.AutoCompleteMethod);
-				}
-			}
-			else if (builder.Options?.FirstOrDefault()?.Type is ApplicationCommandOptionType.SubCommandGroup)
-			{
-				foreach (ApplicationCommandOptionBuilder group in builder.Options)
-				{
-					string groupName = group.Name + " ";
-					foreach (ApplicationCommandOptionBuilder option in group.Options)
+					switch (option.Type)
 					{
-						Methods.Add(groupName + option.Name, option.Method);
-						string optionName = groupName + option.Name + " ";
-						foreach (ApplicationCommandOptionBuilder autocompleteOption in option.Options.Where(x =>
-							x.AutoCompleteMethod != null))
-							AutocompleteMethods.Add(optionName + autocompleteOption.Name,
-								autocompleteOption.AutoCompleteMethod);
+						case ApplicationCommandOptionType.SubCommand:
+						{
+							Methods.Add(option.Name, option.Method);
+							string optionName = option.Name + " ";
+							foreach (ApplicationCommandOptionBuilder autocompleteOption in option.Options.Where(x =>
+								x.AutoCompleteMethod != null))
+								AutocompleteMethods.Add(optionName + autocompleteOption.Name,
+									autocompleteOption.AutoCompleteMethod);
+							break;
+						}
+						case ApplicationCommandOptionType.SubCommandGroup:
+						{
+							string groupName = option.Name + " ";
+							foreach (ApplicationCommandOptionBuilder subOption in option.Options)
+							{
+								Methods.Add(groupName + subOption.Name, subOption.Method);
+								string optionName = groupName + subOption.Name + " ";
+								foreach (ApplicationCommandOptionBuilder autocompleteOption in subOption.Options.Where(x =>
+									x.AutoCompleteMethod != null))
+									AutocompleteMethods.Add(optionName + autocompleteOption.Name,
+										autocompleteOption.AutoCompleteMethod);
+							}
+							break;
+						}
 					}
-				}
 			}
 			else
 			{
