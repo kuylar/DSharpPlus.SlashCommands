@@ -33,6 +33,7 @@ namespace DSharpPlus.SlashCommands.TestBot
 			slash.RegisterCommands<WrappedGroup>(917263628846108683);
 			slash.RegisterCommands<PreExecutionChecks>(917263628846108683);
 			slash.RegisterCommands<ContextMenus>(917263628846108683);
+			slash.RegisterCommands<MixedGroups>(917263628846108683);
 
 			slash.SlashCommandErrored += (sender, args) =>
 			{

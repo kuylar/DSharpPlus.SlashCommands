@@ -121,30 +121,28 @@ namespace DSharpPlus.SlashCommands
 						command.AddOption(group);
 					}
 				}
-				else
+
+				// one-level groups
+				foreach (MethodInfo method in module.GetMethods()
+					.Where(x => x.GetCustomAttribute<SlashCommandAttribute>() != null))
 				{
-					// one-level groups
-					foreach (MethodInfo method in module.GetMethods()
-						.Where(x => x.GetCustomAttribute<SlashCommandAttribute>() != null))
-					{
-						SlashCommandAttribute attr = method.GetCustomAttribute<SlashCommandAttribute>();
+					SlashCommandAttribute attr = method.GetCustomAttribute<SlashCommandAttribute>();
 
-						if (attr == null) return; // shut up rider
+					if (attr == null) return; // shut up rider
 
-						ApplicationCommandOptionBuilder subcommand =
-							new ApplicationCommandOptionBuilder(ApplicationCommandOptionType.SubCommand)
-								.WithName(attr.Name)
-								.WithDescription(attr.Description)
-								.WithMethod(method);
+					ApplicationCommandOptionBuilder subcommand =
+						new ApplicationCommandOptionBuilder(ApplicationCommandOptionType.SubCommand)
+							.WithName(attr.Name)
+							.WithDescription(attr.Description)
+							.WithMethod(method);
 
-						if (method.GetParameters()[0].ParameterType != typeof(InteractionContext))
-							throw new ArgumentException(
-								"The first argument on slash commands must be InteractionContext");
+					if (method.GetParameters()[0].ParameterType != typeof(InteractionContext))
+						throw new ArgumentException(
+							"The first argument on slash commands must be InteractionContext");
 
-						subcommand.AddOptions(ParseParameters(method.GetParameters().Skip(1)));
+					subcommand.AddOptions(ParseParameters(method.GetParameters().Skip(1)));
 
-						command.AddOption(subcommand);
-					}
+					command.AddOption(subcommand);
 				}
 
 				RegisterCommand(command, guildId);
