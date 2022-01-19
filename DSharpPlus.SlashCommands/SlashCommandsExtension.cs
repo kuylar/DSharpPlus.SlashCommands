@@ -57,7 +57,7 @@ namespace DSharpPlus.SlashCommands
 		/// </summary>
 		/// <param name="command">ApplicationCommandBuilder to add</param>
 		/// <param name="guildId">The ID of the guild to add this command to</param>
-		public void RegisterCommand(ApplicationCommandBuilder command, ulong? guildId) =>
+		public void RegisterCommand(ApplicationCommandBuilder command, ulong? guildId = null) =>
 			_unsubmittedCommands.Add((command, guildId ?? 0));
 
 		/// <summary>
@@ -65,7 +65,7 @@ namespace DSharpPlus.SlashCommands
 		/// You have to run RefreshCommands if you add any commands after the Ready event
 		/// </summary>
 		/// <param name="guildId">The ID of the guild to add this command module to</param>
-		public void RegisterCommands<T>(ulong? guildId) => RegisterCommands(typeof(T), guildId);
+		public void RegisterCommands<T>(ulong? guildId = null) => RegisterCommands(typeof(T), guildId);
 
 		/// <summary>
 		/// Register a command module.
@@ -73,7 +73,7 @@ namespace DSharpPlus.SlashCommands
 		/// </summary>
 		/// <param name="module">The ApplicationCommandModule to add</param>
 		/// <param name="guildId">The ID of the guild to add this command module to</param>
-		public void RegisterCommands(Type module, ulong? guildId)
+		public void RegisterCommands(Type module, ulong? guildId = null)
 		{
 			if (module.GetCustomAttribute<SlashCommandGroupAttribute>() is not null)
 			{
@@ -276,7 +276,7 @@ namespace DSharpPlus.SlashCommands
 		/// </summary>
 		/// <param name="assembly">The assembly to find and add the modules from</param>
 		/// <param name="guildId">The ID of the guild to add this command modules to</param>
-		public void RegisterCommands(Assembly assembly, ulong? guildId)
+		public void RegisterCommands(Assembly assembly, ulong? guildId = null)
 		{
 			IEnumerable<Type> types = assembly.ExportedTypes.Where(xt =>
 				typeof(ApplicationCommandModule).IsAssignableFrom(xt) &&
@@ -305,8 +305,9 @@ namespace DSharpPlus.SlashCommands
 
 		private async Task OnGuildAvailable(DiscordClient sender, GuildCreateEventArgs args) => await PushCommands(args.Guild.Id);
 
-		private async Task PushCommands(ulong guildId = 0)
+		private async Task PushCommands(ulong? guildId = 0)
 		{
+			guildId ??= 0;
 			Task.Run(async () =>
 			{
 				ApplicationCommandBuilder[] commands =
@@ -315,14 +316,14 @@ namespace DSharpPlus.SlashCommands
 				if (guildId == 0)
 					dcCommands = await _client.BulkOverwriteGlobalApplicationCommandsAsync(commands.Select(x => x.Build()));
 				else
-					dcCommands = await _client.BulkOverwriteGuildApplicationCommandsAsync(guildId,
+					dcCommands = await _client.BulkOverwriteGuildApplicationCommandsAsync(guildId ?? 0,
 						commands.Select(x => x.Build()));
 				
 				foreach ((ulong key, ApplicationCommand _) in _commands.Where(x => x.Value.GuildId == guildId).ToArray())
 					_commands.Remove(key);
 
 				foreach (DiscordApplicationCommand dac in dcCommands)
-					_commands.Add(dac.Id, new ApplicationCommand(commands.First(x => x.Name == dac.Name), guildId));
+					_commands.Add(dac.Id, new ApplicationCommand(commands.First(x => x.Name == dac.Name), guildId ?? 0));
 			});
 		}
 
