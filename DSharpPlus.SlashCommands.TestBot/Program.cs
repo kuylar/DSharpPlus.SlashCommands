@@ -45,6 +45,15 @@ namespace DSharpPlus.SlashCommands.TestBot
 				return Task.CompletedTask;
 			};
 
+			slash.ContextMenuErrored += (sender, args) =>
+			{
+				if (args.Exception is SlashExecutionChecksFailedException fail)
+					args.Context.CreateResponseAsync(string.Join("\n", fail.FailedChecks.Select(x => x.GetType().Name)));
+				else
+					args.Context.CreateResponseAsync(Formatter.Sanitize(args.Exception.ToString()));
+				return Task.CompletedTask;
+			};
+
 			_client.ClientErrored += (_, args) =>
 			{
 				if (args.Exception is BadRequestException exception)

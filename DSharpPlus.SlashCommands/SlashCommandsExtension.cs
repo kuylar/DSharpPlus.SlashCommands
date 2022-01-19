@@ -533,59 +533,30 @@ namespace DSharpPlus.SlashCommands
 
 		private async Task PreExecutionChecks(MethodInfo method, BaseContext context)
 		{
-			if (context is InteractionContext ctx)
-            {
-                //Gets all attributes from parent classes as well and stuff
-                var attributes = new List<SlashCheckBaseAttribute>();
-                attributes.AddRange(method.GetCustomAttributes<SlashCheckBaseAttribute>(true));
-                attributes.AddRange(method.DeclaringType.GetCustomAttributes<SlashCheckBaseAttribute>());
-                if (method.DeclaringType.DeclaringType != null)
-                {
-                    attributes.AddRange(method.DeclaringType.DeclaringType.GetCustomAttributes<SlashCheckBaseAttribute>());
-                    if (method.DeclaringType.DeclaringType.DeclaringType != null)
-                    {
-                        attributes.AddRange(method.DeclaringType.DeclaringType.DeclaringType.GetCustomAttributes<SlashCheckBaseAttribute>());
-                    }
-                }
+			//Gets all attributes from parent classes as well and stuff
+			List<SlashCheckBaseAttribute> attributes = new List<SlashCheckBaseAttribute>();
+			attributes.AddRange(method.GetCustomAttributes<SlashCheckBaseAttribute>(true));
+			attributes.AddRange(method.DeclaringType.GetCustomAttributes<SlashCheckBaseAttribute>());
+			if (method.DeclaringType.DeclaringType != null)
+			{
+				attributes.AddRange(method.DeclaringType.DeclaringType.GetCustomAttributes<SlashCheckBaseAttribute>());
+				if (method.DeclaringType.DeclaringType.DeclaringType != null)
+					attributes.AddRange(method.DeclaringType.DeclaringType.DeclaringType
+						.GetCustomAttributes<SlashCheckBaseAttribute>());
+			}
 
-                var dict = new Dictionary<SlashCheckBaseAttribute, bool>();
-                foreach (var att in attributes)
-                {
-                    //Runs the check and adds the result to a list
-                    var result = await att.ExecuteChecksAsync(ctx);
-                    dict.Add(att, result);
-                }
+			Dictionary<SlashCheckBaseAttribute, bool> dict = new Dictionary<SlashCheckBaseAttribute, bool>();
+			foreach (SlashCheckBaseAttribute att in attributes)
+			{
+				//Runs the check and adds the result to a list
+				bool result = await att.ExecuteChecksAsync(context);
+				dict.Add(att, result);
+			}
 
-                //Checks if any failed, and throws an exception
-                if (dict.Any(x => x.Value == false))
-                    throw new SlashExecutionChecksFailedException { FailedChecks = dict.Where(x => x.Value == false).Select(x => x.Key).ToList() };
-            }
-            if (context is ContextMenuContext cMctx)
-            {
-                var attributes = new List<ContextMenuCheckBaseAttribute>();
-                attributes.AddRange(method.GetCustomAttributes<ContextMenuCheckBaseAttribute>(true));
-                attributes.AddRange(method.DeclaringType.GetCustomAttributes<ContextMenuCheckBaseAttribute>());
-                if (method.DeclaringType.DeclaringType != null)
-                {
-                    attributes.AddRange(method.DeclaringType.DeclaringType.GetCustomAttributes<ContextMenuCheckBaseAttribute>());
-                    if (method.DeclaringType.DeclaringType.DeclaringType != null)
-                    {
-                        attributes.AddRange(method.DeclaringType.DeclaringType.DeclaringType.GetCustomAttributes<ContextMenuCheckBaseAttribute>());
-                    }
-                }
-
-                var dict = new Dictionary<ContextMenuCheckBaseAttribute, bool>();
-                foreach (var att in attributes)
-                {
-                    //Runs the check and adds the result to a list
-                    var result = await att.ExecuteChecksAsync(cMctx);
-                    dict.Add(att, result);
-                }
-
-                //Checks if any failed, and throws an exception
-                if (dict.Any(x => x.Value == false))
-                    throw new ContextMenuExecutionChecksFailedException { FailedChecks = dict.Where(x => x.Value == false).Select(x => x.Key).ToList() };
-            }
+			//Checks if any failed, and throws an exception
+			if (dict.Any(x => x.Value == false))
+				throw new SlashExecutionChecksFailedException
+					{ FailedChecks = dict.Where(x => x.Value == false).Select(x => x.Key).ToList() };
 		}
 		// ReSharper restore AssignNullToNotNullAttribute
 		// ReSharper restore PossibleNullReferenceException

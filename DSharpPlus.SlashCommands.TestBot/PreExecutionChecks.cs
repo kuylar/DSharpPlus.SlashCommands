@@ -8,5 +8,10 @@ namespace DSharpPlus.SlashCommands.TestBot
 		[Year]
 		public async Task YearCommand(InteractionContext context) =>
 			await context.CreateResponseAsync("oh wow its 2023?");
+		
+		[ContextMenu(ApplicationCommandType.MessageContextMenu, "Year Lock (2023 only)")]
+		[Year]
+		public async Task YearCommand(ContextMenuContext context) =>
+			await context.CreateResponseAsync("oh wow its 2023?");
 	}
 }
