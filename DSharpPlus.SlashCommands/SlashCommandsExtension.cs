@@ -589,10 +589,12 @@ namespace DSharpPlus.SlashCommands
 					type = ApplicationCommandOptionType.Mentionable;
 				else if (parameterInfo.ParameterType.IsEnum)
 					type = ApplicationCommandOptionType.String;
+				else if (parameterInfo.ParameterType == typeof(DiscordAttachment))
+					type = (ApplicationCommandOptionType)11;
 				else
 					throw new ArgumentOutOfRangeException(nameof(parameterInfo.ParameterType),
 						parameterInfo.ParameterType,
-						"Slash command option types can be one of string, long, bool, double, DiscordUser, DiscordChannel, DiscordRole, SnowflakeObject, Enum");
+						"Slash command option types can be one of string, long, bool, double, DiscordUser, DiscordChannel, DiscordRole, DiscordAttachment, SnowflakeObject, Enum");
 
 				ApplicationCommandOptionBuilder option = new ApplicationCommandOptionBuilder(type)
 					.WithName(optionAttr?.Name)
