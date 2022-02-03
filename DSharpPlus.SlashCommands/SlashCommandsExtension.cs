@@ -659,7 +659,9 @@ namespace DSharpPlus.SlashCommands
 				string paramName = param.GetCustomAttribute<OptionAttribute>()?.Name;
 				DiscordInteractionDataOption option = options.FirstOrDefault(x => x.Name == paramName);
 
-				if (param.ParameterType.IsEnum)
+				if (option is null && param.HasDefaultValue)
+					objects.Add(param.DefaultValue);
+				else if (param.ParameterType.IsEnum)
 					objects.Add(Enum.Parse(param.ParameterType, option?.Value as string ?? string.Empty));
 				else
 					objects.Add(await ConvertOptionToType(option, param.ParameterType, resolved));
