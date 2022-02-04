@@ -441,7 +441,7 @@ namespace DSharpPlus.SlashCommands
 
 				MethodInfo method = _commands[e.Interaction.Data.Id].Methods[string.Empty];
 				ApplicationCommandModule instance =
-					(ApplicationCommandModule)Activator.CreateInstance(method.DeclaringType);
+					(ApplicationCommandModule)InstanceCreator.CreateInstance(method.DeclaringType, _services);
 
 				try
 				{
@@ -506,7 +506,7 @@ namespace DSharpPlus.SlashCommands
 
 				MethodInfo method = _commands[e.Interaction.Data.Id].AutocompleteMethods[focusedOption.Name];
 				IAutocompleteProvider instance =
-					(IAutocompleteProvider)Activator.CreateInstance(method.DeclaringType);
+					(IAutocompleteProvider)InstanceCreator.CreateInstance(method.DeclaringType, _services);
 
 				try
 				{
