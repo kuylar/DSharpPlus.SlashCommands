@@ -33,7 +33,7 @@ namespace DSharpPlus.SlashCommands.Attributes
         /// <summary>
         /// Runs checks.
         /// </summary>
-        public override async Task<bool> ExecuteChecksAsync(InteractionContext ctx)
+        public override async Task<bool> ExecuteChecksAsync(BaseContext ctx)
         {
             if (ctx.Guild == null)
                 return this.IgnoreDms;

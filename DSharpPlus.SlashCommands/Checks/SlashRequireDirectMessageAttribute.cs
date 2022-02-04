@@ -19,7 +19,7 @@ namespace DSharpPlus.SlashCommands.Attributes
         /// <summary>
         /// Runs checks.
         /// </summary>
-        public override Task<bool> ExecuteChecksAsync(InteractionContext ctx)
+        public override Task<bool> ExecuteChecksAsync(BaseContext ctx)
             => Task.FromResult(ctx.Channel is DiscordDmChannel);
     }
 }

@@ -57,7 +57,7 @@ namespace DSharpPlus.SlashCommands
 		/// </summary>
 		/// <param name="command">ApplicationCommandBuilder to add</param>
 		/// <param name="guildId">The ID of the guild to add this command to</param>
-		public void RegisterCommand(ApplicationCommandBuilder command, ulong? guildId) =>
+		public void RegisterCommand(ApplicationCommandBuilder command, ulong? guildId = null) =>
 			_unsubmittedCommands.Add((command, guildId ?? 0));
 
 		/// <summary>
@@ -65,7 +65,7 @@ namespace DSharpPlus.SlashCommands
 		/// You have to run RefreshCommands if you add any commands after the Ready event
 		/// </summary>
 		/// <param name="guildId">The ID of the guild to add this command module to</param>
-		public void RegisterCommands<T>(ulong? guildId) => RegisterCommands(typeof(T), guildId);
+		public void RegisterCommands<T>(ulong? guildId = null) => RegisterCommands(typeof(T), guildId);
 
 		/// <summary>
 		/// Register a command module.
@@ -73,7 +73,7 @@ namespace DSharpPlus.SlashCommands
 		/// </summary>
 		/// <param name="module">The ApplicationCommandModule to add</param>
 		/// <param name="guildId">The ID of the guild to add this command module to</param>
-		public void RegisterCommands(Type module, ulong? guildId)
+		public void RegisterCommands(Type module, ulong? guildId = null)
 		{
 			if (module.GetCustomAttribute<SlashCommandGroupAttribute>() is not null)
 			{
@@ -121,34 +121,108 @@ namespace DSharpPlus.SlashCommands
 						command.AddOption(group);
 					}
 				}
-				else
+
+				// one-level groups
+				foreach (MethodInfo method in module.GetMethods()
+					.Where(x => x.GetCustomAttribute<SlashCommandAttribute>() != null))
 				{
-					// one-level groups
-					foreach (MethodInfo method in module.GetMethods()
-						.Where(x => x.GetCustomAttribute<SlashCommandAttribute>() != null))
-					{
-						SlashCommandAttribute attr = method.GetCustomAttribute<SlashCommandAttribute>();
+					SlashCommandAttribute attr = method.GetCustomAttribute<SlashCommandAttribute>();
 
-						if (attr == null) return; // shut up rider
+					if (attr == null) return; // shut up rider
 
-						ApplicationCommandOptionBuilder subcommand =
-							new ApplicationCommandOptionBuilder(ApplicationCommandOptionType.SubCommand)
-								.WithName(attr.Name)
-								.WithDescription(attr.Description)
-								.WithMethod(method);
+					ApplicationCommandOptionBuilder subcommand =
+						new ApplicationCommandOptionBuilder(ApplicationCommandOptionType.SubCommand)
+							.WithName(attr.Name)
+							.WithDescription(attr.Description)
+							.WithMethod(method);
 
-						if (method.GetParameters()[0].ParameterType != typeof(InteractionContext))
-							throw new ArgumentException(
-								"The first argument on slash commands must be InteractionContext");
+					if (method.GetParameters()[0].ParameterType != typeof(InteractionContext))
+						throw new ArgumentException(
+							"The first argument on slash commands must be InteractionContext");
 
-						subcommand.AddOptions(ParseParameters(method.GetParameters().Skip(1)));
+					subcommand.AddOptions(ParseParameters(method.GetParameters().Skip(1)));
 
-						command.AddOption(subcommand);
-					}
+					command.AddOption(subcommand);
 				}
 
 				RegisterCommand(command, guildId);
 			}
+			else if (module.GetNestedTypes().Any(x => x.GetCustomAttribute<SlashCommandGroupAttribute>() is not null))
+			{
+				foreach (Type groupType in module.GetNestedTypes()
+					.Where(x => x.GetCustomAttribute<SlashCommandGroupAttribute>() is not null))
+				{
+					SlashCommandGroupAttribute gAttr = groupType.GetCustomAttribute<SlashCommandGroupAttribute>();
+					if (gAttr == null) return; // shut up rider
+					ApplicationCommandBuilder command =
+						new ApplicationCommandBuilder(ApplicationCommandType.SlashCommand)
+							.WithName(gAttr.Name)
+							.WithDescription(gAttr.Description);
+
+					if (groupType.GetNestedTypes()
+							.Any(x => x.GetCustomAttribute<SlashCommandGroupAttribute>() is not null))
+						// two-level groups
+						foreach (Type g in groupType.GetNestedTypes())
+						{
+							SlashCommandGroupAttribute sGAttr = g.GetCustomAttribute<SlashCommandGroupAttribute>();
+							if (sGAttr == null) return; // shut up rider
+
+							ApplicationCommandOptionBuilder group =
+								new ApplicationCommandOptionBuilder(ApplicationCommandOptionType.SubCommandGroup)
+									.WithName(sGAttr.Name)
+									.WithDescription(sGAttr.Description);
+
+							foreach (MethodInfo method in g.GetMethods()
+								.Where(x => x.GetCustomAttribute<SlashCommandAttribute>() != null))
+							{
+								SlashCommandAttribute attr = method.GetCustomAttribute<SlashCommandAttribute>();
+
+								if (attr == null) return; // shut up rider
+
+								ApplicationCommandOptionBuilder subcommand =
+									new ApplicationCommandOptionBuilder(ApplicationCommandOptionType.SubCommand)
+										.WithName(attr.Name)
+										.WithDescription(attr.Description)
+										.WithMethod(method);
+
+								if (method.GetParameters()[0].ParameterType != typeof(InteractionContext))
+									throw new ArgumentException(
+										"The first argument on slash commands must be InteractionContext");
+
+								subcommand.AddOptions(ParseParameters(method.GetParameters().Skip(1)));
+
+								group.AddOption(subcommand);
+							}
+
+							command.AddOption(group);
+						}
+					else
+						// one-level groups
+						foreach (MethodInfo method in groupType.GetMethods()
+							.Where(x => x.GetCustomAttribute<SlashCommandAttribute>() != null))
+						{
+							SlashCommandAttribute attr = method.GetCustomAttribute<SlashCommandAttribute>();
+
+							if (attr == null) return; // shut up rider
+
+							ApplicationCommandOptionBuilder subcommand =
+								new ApplicationCommandOptionBuilder(ApplicationCommandOptionType.SubCommand)
+									.WithName(attr.Name)
+									.WithDescription(attr.Description)
+									.WithMethod(method);
+
+							if (method.GetParameters()[0].ParameterType != typeof(InteractionContext))
+								throw new ArgumentException(
+									"The first argument on slash commands must be InteractionContext");
+
+							subcommand.AddOptions(ParseParameters(method.GetParameters().Skip(1)));
+
+							command.AddOption(subcommand);
+						}
+
+					RegisterCommand(command, guildId);
+				}
+			} 
 			else
 			{
 				// normal commands
@@ -202,7 +276,7 @@ namespace DSharpPlus.SlashCommands
 		/// </summary>
 		/// <param name="assembly">The assembly to find and add the modules from</param>
 		/// <param name="guildId">The ID of the guild to add this command modules to</param>
-		public void RegisterCommands(Assembly assembly, ulong? guildId)
+		public void RegisterCommands(Assembly assembly, ulong? guildId = null)
 		{
 			IEnumerable<Type> types = assembly.ExportedTypes.Where(xt =>
 				typeof(ApplicationCommandModule).IsAssignableFrom(xt) &&
@@ -231,8 +305,9 @@ namespace DSharpPlus.SlashCommands
 
 		private async Task OnGuildAvailable(DiscordClient sender, GuildCreateEventArgs args) => await PushCommands(args.Guild.Id);
 
-		private async Task PushCommands(ulong guildId = 0)
+		private async Task PushCommands(ulong? guildId = 0)
 		{
+			guildId ??= 0;
 			Task.Run(async () =>
 			{
 				ApplicationCommandBuilder[] commands =
@@ -241,14 +316,14 @@ namespace DSharpPlus.SlashCommands
 				if (guildId == 0)
 					dcCommands = await _client.BulkOverwriteGlobalApplicationCommandsAsync(commands.Select(x => x.Build()));
 				else
-					dcCommands = await _client.BulkOverwriteGuildApplicationCommandsAsync(guildId,
+					dcCommands = await _client.BulkOverwriteGuildApplicationCommandsAsync(guildId ?? 0,
 						commands.Select(x => x.Build()));
 				
 				foreach ((ulong key, ApplicationCommand _) in _commands.Where(x => x.Value.GuildId == guildId).ToArray())
 					_commands.Remove(key);
 
 				foreach (DiscordApplicationCommand dac in dcCommands)
-					_commands.Add(dac.Id, new ApplicationCommand(commands.First(x => x.Name == dac.Name), guildId));
+					_commands.Add(dac.Id, new ApplicationCommand(commands.First(x => x.Name == dac.Name), guildId ?? 0));
 			});
 		}
 
@@ -458,59 +533,30 @@ namespace DSharpPlus.SlashCommands
 
 		private async Task PreExecutionChecks(MethodInfo method, BaseContext context)
 		{
-			if (context is InteractionContext ctx)
-            {
-                //Gets all attributes from parent classes as well and stuff
-                var attributes = new List<SlashCheckBaseAttribute>();
-                attributes.AddRange(method.GetCustomAttributes<SlashCheckBaseAttribute>(true));
-                attributes.AddRange(method.DeclaringType.GetCustomAttributes<SlashCheckBaseAttribute>());
-                if (method.DeclaringType.DeclaringType != null)
-                {
-                    attributes.AddRange(method.DeclaringType.DeclaringType.GetCustomAttributes<SlashCheckBaseAttribute>());
-                    if (method.DeclaringType.DeclaringType.DeclaringType != null)
-                    {
-                        attributes.AddRange(method.DeclaringType.DeclaringType.DeclaringType.GetCustomAttributes<SlashCheckBaseAttribute>());
-                    }
-                }
+			//Gets all attributes from parent classes as well and stuff
+			List<SlashCheckBaseAttribute> attributes = new List<SlashCheckBaseAttribute>();
+			attributes.AddRange(method.GetCustomAttributes<SlashCheckBaseAttribute>(true));
+			attributes.AddRange(method.DeclaringType.GetCustomAttributes<SlashCheckBaseAttribute>());
+			if (method.DeclaringType.DeclaringType != null)
+			{
+				attributes.AddRange(method.DeclaringType.DeclaringType.GetCustomAttributes<SlashCheckBaseAttribute>());
+				if (method.DeclaringType.DeclaringType.DeclaringType != null)
+					attributes.AddRange(method.DeclaringType.DeclaringType.DeclaringType
+						.GetCustomAttributes<SlashCheckBaseAttribute>());
+			}
 
-                var dict = new Dictionary<SlashCheckBaseAttribute, bool>();
-                foreach (var att in attributes)
-                {
-                    //Runs the check and adds the result to a list
-                    var result = await att.ExecuteChecksAsync(ctx);
-                    dict.Add(att, result);
-                }
+			Dictionary<SlashCheckBaseAttribute, bool> dict = new Dictionary<SlashCheckBaseAttribute, bool>();
+			foreach (SlashCheckBaseAttribute att in attributes)
+			{
+				//Runs the check and adds the result to a list
+				bool result = await att.ExecuteChecksAsync(context);
+				dict.Add(att, result);
+			}
 
-                //Checks if any failed, and throws an exception
-                if (dict.Any(x => x.Value == false))
-                    throw new SlashExecutionChecksFailedException { FailedChecks = dict.Where(x => x.Value == false).Select(x => x.Key).ToList() };
-            }
-            if (context is ContextMenuContext cMctx)
-            {
-                var attributes = new List<ContextMenuCheckBaseAttribute>();
-                attributes.AddRange(method.GetCustomAttributes<ContextMenuCheckBaseAttribute>(true));
-                attributes.AddRange(method.DeclaringType.GetCustomAttributes<ContextMenuCheckBaseAttribute>());
-                if (method.DeclaringType.DeclaringType != null)
-                {
-                    attributes.AddRange(method.DeclaringType.DeclaringType.GetCustomAttributes<ContextMenuCheckBaseAttribute>());
-                    if (method.DeclaringType.DeclaringType.DeclaringType != null)
-                    {
-                        attributes.AddRange(method.DeclaringType.DeclaringType.DeclaringType.GetCustomAttributes<ContextMenuCheckBaseAttribute>());
-                    }
-                }
-
-                var dict = new Dictionary<ContextMenuCheckBaseAttribute, bool>();
-                foreach (var att in attributes)
-                {
-                    //Runs the check and adds the result to a list
-                    var result = await att.ExecuteChecksAsync(cMctx);
-                    dict.Add(att, result);
-                }
-
-                //Checks if any failed, and throws an exception
-                if (dict.Any(x => x.Value == false))
-                    throw new ContextMenuExecutionChecksFailedException { FailedChecks = dict.Where(x => x.Value == false).Select(x => x.Key).ToList() };
-            }
+			//Checks if any failed, and throws an exception
+			if (dict.Any(x => x.Value == false))
+				throw new SlashExecutionChecksFailedException
+					{ FailedChecks = dict.Where(x => x.Value == false).Select(x => x.Key).ToList() };
 		}
 		// ReSharper restore AssignNullToNotNullAttribute
 		// ReSharper restore PossibleNullReferenceException
@@ -543,10 +589,12 @@ namespace DSharpPlus.SlashCommands
 					type = ApplicationCommandOptionType.Mentionable;
 				else if (parameterInfo.ParameterType.IsEnum)
 					type = ApplicationCommandOptionType.String;
+				else if (parameterInfo.ParameterType == typeof(DiscordAttachment))
+					type = (ApplicationCommandOptionType)11;
 				else
 					throw new ArgumentOutOfRangeException(nameof(parameterInfo.ParameterType),
 						parameterInfo.ParameterType,
-						"Slash command option types can be one of string, long, bool, double, DiscordUser, DiscordChannel, DiscordRole, SnowflakeObject, Enum");
+						"Slash command option types can be one of string, long, bool, double, DiscordUser, DiscordChannel, DiscordRole, DiscordAttachment, SnowflakeObject, Enum");
 
 				ApplicationCommandOptionBuilder option = new ApplicationCommandOptionBuilder(type)
 					.WithName(optionAttr?.Name)
@@ -611,7 +659,9 @@ namespace DSharpPlus.SlashCommands
 				string paramName = param.GetCustomAttribute<OptionAttribute>()?.Name;
 				DiscordInteractionDataOption option = options.FirstOrDefault(x => x.Name == paramName);
 
-				if (param.ParameterType.IsEnum)
+				if (option is null && param.HasDefaultValue)
+					objects.Add(param.DefaultValue);
+				else if (param.ParameterType.IsEnum)
 					objects.Add(Enum.Parse(param.ParameterType, option?.Value as string ?? string.Empty));
 				else
 					objects.Add(await ConvertOptionToType(option, param.ParameterType, resolved));

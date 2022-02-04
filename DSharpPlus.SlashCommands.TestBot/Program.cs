@@ -30,10 +30,22 @@ namespace DSharpPlus.SlashCommands.TestBot
 			slash.RegisterCommands<SlashCommands>(917263628846108683);
 			slash.RegisterCommands<OneLevelGroup>(917263628846108683);
 			slash.RegisterCommands<TwoLevelGroup>(917263628846108683);
+			slash.RegisterCommands<WrappedGroup>(917263628846108683);
 			slash.RegisterCommands<PreExecutionChecks>(917263628846108683);
 			slash.RegisterCommands<ContextMenus>(917263628846108683);
+			slash.RegisterCommands<MixedGroups>(917263628846108683);
+			slash.RegisterCommands<GlobalCommands>();
 
 			slash.SlashCommandErrored += (sender, args) =>
+			{
+				if (args.Exception is SlashExecutionChecksFailedException fail)
+					args.Context.CreateResponseAsync(string.Join("\n", fail.FailedChecks.Select(x => x.GetType().Name)));
+				else
+					args.Context.CreateResponseAsync(Formatter.Sanitize(args.Exception.ToString()));
+				return Task.CompletedTask;
+			};
+
+			slash.ContextMenuErrored += (sender, args) =>
 			{
 				if (args.Exception is SlashExecutionChecksFailedException fail)
 					args.Context.CreateResponseAsync(string.Join("\n", fail.FailedChecks.Select(x => x.GetType().Name)));

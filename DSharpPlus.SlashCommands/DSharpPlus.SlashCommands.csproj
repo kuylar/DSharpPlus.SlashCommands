@@ -9,13 +9,18 @@
         <Description>A "better" slash commands extension based on the official one</Description>
         <PackageProjectUrl>https://github.com/kuylar/DSharpPlus.SlashCommands</PackageProjectUrl>
         <RepositoryUrl>https://github.com/kuylar/DSharpPlus.SlashCommands</RepositoryUrl>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <RepositoryType>git</RepositoryType>
         <PackageTags>discord, dsharpplus</PackageTags>
-        <PackageVersion>1.0.1</PackageVersion>
+        <PackageVersion>1.0.6</PackageVersion>
+
+        <RestoreAdditionalProjectSources>
+            https://nuget.emzi0767.com/api/v3/index.json
+        </RestoreAdditionalProjectSources>
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="DSharpPlus" Version="4.2.0-nightly-01051" />
+        <PackageReference Include="DSharpPlus" Version="4.2.0-nightly-01063" />
         <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="5.0.2" />
     </ItemGroup>
 

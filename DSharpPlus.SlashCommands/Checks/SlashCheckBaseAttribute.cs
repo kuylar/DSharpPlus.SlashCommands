@@ -13,6 +13,6 @@ namespace DSharpPlus.SlashCommands
         /// </summary>
         /// <param name="ctx">The context.</param>
         /// <returns>Whether the checks passed.</returns>
-        public abstract Task<bool> ExecuteChecksAsync(InteractionContext ctx);
+        public abstract Task<bool> ExecuteChecksAsync(BaseContext ctx);
     }
 }

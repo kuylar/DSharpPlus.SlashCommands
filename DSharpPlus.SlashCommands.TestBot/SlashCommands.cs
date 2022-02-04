@@ -124,6 +124,13 @@ namespace DSharpPlus.SlashCommands.TestBot
 			[Option("enum", "Fun fact: this will fail")]
 			CoolEnum option) =>
 			await ctx.CreateResponseAsync($"You chose:\n{option}");
-
+		
+		[SlashCommand("attachment", "Attachment")]
+		public async Task AttachmentCommand(InteractionContext ctx,
+			[Option("required", "I require your files!")]
+			DiscordAttachment required,
+			[Option("optional", "I require your files!")]
+			DiscordAttachment optional = null) =>
+			await ctx.CreateResponseAsync($"Your file: [{required.MediaType}]\n{required.ProxyUrl}\n\n[{optional?.MediaType}]\n{optional?.ProxyUrl}");
 	}
 }
