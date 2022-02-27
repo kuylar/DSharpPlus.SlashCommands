@@ -721,8 +721,13 @@ namespace DSharpPlus.SlashCommands
 				throw new ArgumentException("Error resolving mentionable option.");
 			}
 
-			if (type == typeof(Enum))
-				throw new ArgumentException("Enums are not supported yet");
+			if (type == typeof(DiscordAttachment))
+			{
+				ulong id = (ulong)option.Value;
+				//Checks through resolved
+				return resolved.Attachments.TryGetValue(id, out DiscordAttachment a) ? a : null;
+			}
+
 			throw new ArgumentOutOfRangeException(nameof(type), type,
 				"Slash command option types can be one of string, long, bool, double, DiscordUser, DiscordChannel, DiscordRole, SnowflakeObject, Enum");
 		}

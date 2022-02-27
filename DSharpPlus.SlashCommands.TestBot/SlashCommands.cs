@@ -131,6 +131,6 @@ namespace DSharpPlus.SlashCommands.TestBot
 			DiscordAttachment required,
 			[Option("optional", "I require your files!")]
 			DiscordAttachment optional = null) =>
-			await ctx.CreateResponseAsync($"Your file: [{required.MediaType}]\n{required.ProxyUrl}\n\n[{optional?.MediaType}]\n{optional?.ProxyUrl}");
+			await ctx.CreateResponseAsync($"Your file: [{required.MediaType}]\n{required.ProxyUrl}\n\nYour (optional) file: [{optional?.MediaType}]\n{optional?.ProxyUrl}");
 	}
 }
