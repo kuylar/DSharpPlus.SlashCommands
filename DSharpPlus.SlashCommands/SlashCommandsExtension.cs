@@ -687,6 +687,8 @@ namespace DSharpPlus.SlashCommands
 			if (type == typeof(DiscordUser))
 			{
 				ulong id = (ulong)option.Value;
+				if (resolved.Members.TryGetValue(id, out DiscordMember m))
+					return m;
 				if (resolved.Users.TryGetValue(id, out DiscordUser u))
 					return u;
 

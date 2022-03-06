@@ -132,5 +132,11 @@ namespace DSharpPlus.SlashCommands.TestBot
 			[Option("optional", "I require your files!")]
 			DiscordAttachment optional = null) =>
 			await ctx.CreateResponseAsync($"Your file: [{required.MediaType}]\n{required.ProxyUrl}\n\nYour (optional) file: [{optional?.MediaType}]\n{optional?.ProxyUrl}");
+		
+		[SlashCommand("member", "Member")]
+		public async Task MemberCommand(InteractionContext ctx,
+			[Option("member", "Fun fact: this will fail")]
+			DiscordUser user) =>
+			await ctx.CreateResponseAsync($"{(user as DiscordMember)?.DisplayName ?? "`<NULL>`"} ");
 	}
 }
