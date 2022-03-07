@@ -32,9 +32,7 @@ namespace DSharpPlus.SlashCommands
 		public OptionAttribute(string name, string description, bool autocomplete = false)
 		{
 			if (!Utilities.IsValidSlashCommandName(name))
-			{
 				throw new ArgumentException("Invalid slash command name specified. It must be below 32 characters and not contain any whitespace.", "name");
-			}
 			if (description.Length > 100)
 				throw new ArgumentException("Slash command option descriptions cannot go over 100 characters.");
 			
