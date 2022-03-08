@@ -441,7 +441,7 @@ namespace DSharpPlus.SlashCommands
 
 				MethodInfo method = _commands[e.Interaction.Data.Id].Methods[string.Empty];
 				ApplicationCommandModule instance =
-					(ApplicationCommandModule)Activator.CreateInstance(method.DeclaringType);
+					(ApplicationCommandModule)InstanceCreator.CreateInstance(method.DeclaringType, _services);
 
 				try
 				{
@@ -506,7 +506,7 @@ namespace DSharpPlus.SlashCommands
 
 				MethodInfo method = _commands[e.Interaction.Data.Id].AutocompleteMethods[focusedOption.Name];
 				IAutocompleteProvider instance =
-					(IAutocompleteProvider)Activator.CreateInstance(method.DeclaringType);
+					(IAutocompleteProvider)InstanceCreator.CreateInstance(method.DeclaringType, _services);
 
 				try
 				{
@@ -589,10 +589,12 @@ namespace DSharpPlus.SlashCommands
 					type = ApplicationCommandOptionType.Mentionable;
 				else if (parameterInfo.ParameterType.IsEnum)
 					type = ApplicationCommandOptionType.String;
+				else if (parameterInfo.ParameterType == typeof(DiscordAttachment))
+					type = (ApplicationCommandOptionType)11;
 				else
 					throw new ArgumentOutOfRangeException(nameof(parameterInfo.ParameterType),
 						parameterInfo.ParameterType,
-						"Slash command option types can be one of string, long, bool, double, DiscordUser, DiscordChannel, DiscordRole, SnowflakeObject, Enum");
+						"Slash command option types can be one of string, long, bool, double, DiscordUser, DiscordChannel, DiscordRole, DiscordAttachment, SnowflakeObject, Enum");
 
 				ApplicationCommandOptionBuilder option = new ApplicationCommandOptionBuilder(type)
 					.WithName(optionAttr?.Name)
@@ -657,7 +659,9 @@ namespace DSharpPlus.SlashCommands
 				string paramName = param.GetCustomAttribute<OptionAttribute>()?.Name;
 				DiscordInteractionDataOption option = options.FirstOrDefault(x => x.Name == paramName);
 
-				if (param.ParameterType.IsEnum)
+				if (option is null && param.HasDefaultValue)
+					objects.Add(param.DefaultValue);
+				else if (param.ParameterType.IsEnum)
 					objects.Add(Enum.Parse(param.ParameterType, option?.Value as string ?? string.Empty));
 				else
 					objects.Add(await ConvertOptionToType(option, param.ParameterType, resolved));
@@ -683,6 +687,8 @@ namespace DSharpPlus.SlashCommands
 			if (type == typeof(DiscordUser))
 			{
 				ulong id = (ulong)option.Value;
+				if (resolved.Members.TryGetValue(id, out DiscordMember m))
+					return m;
 				if (resolved.Users.TryGetValue(id, out DiscordUser u))
 					return u;
 
@@ -717,8 +723,13 @@ namespace DSharpPlus.SlashCommands
 				throw new ArgumentException("Error resolving mentionable option.");
 			}
 
-			if (type == typeof(Enum))
-				throw new ArgumentException("Enums are not supported yet");
+			if (type == typeof(DiscordAttachment))
+			{
+				ulong id = (ulong)option.Value;
+				//Checks through resolved
+				return resolved.Attachments.TryGetValue(id, out DiscordAttachment a) ? a : null;
+			}
+
 			throw new ArgumentOutOfRangeException(nameof(type), type,
 				"Slash command option types can be one of string, long, bool, double, DiscordUser, DiscordChannel, DiscordRole, SnowflakeObject, Enum");
 		}
