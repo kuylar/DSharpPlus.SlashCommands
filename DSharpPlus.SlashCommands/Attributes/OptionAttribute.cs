@@ -24,12 +24,18 @@ namespace DSharpPlus.SlashCommands
 		public bool Autocomplete { get; }
 
 		/// <summary>
+		///     Gets whether this command should be localized using an ILocalizationProvider.
+		/// </summary>
+		public bool ApplyLocalization { get; }
+
+		/// <summary>
 		///     Marks this parameter as an option for a slash command.
 		/// </summary>
 		/// <param name="name">The name of the option.</param>
 		/// <param name="description">The description of the option.</param>
 		/// <param name="autocomplete">Whether this option should autocomplete.</param>
-		public OptionAttribute(string name, string description, bool autocomplete = false)
+		/// <param name="applyLocalization">Sets whether the option should be localized using an ILocalizationProvider.</param>
+		public OptionAttribute(string name, string description, bool autocomplete = false, bool applyLocalization = false)
 		{
 			if (name.Length > 32)
 				throw new ArgumentException("Slash command option names cannot go over 32 characters.");
@@ -38,6 +44,7 @@ namespace DSharpPlus.SlashCommands
 			Name = name.ToLower();
 			Description = description;
 			Autocomplete = autocomplete;
+			ApplyLocalization = applyLocalization;
 		}
 	}
 }

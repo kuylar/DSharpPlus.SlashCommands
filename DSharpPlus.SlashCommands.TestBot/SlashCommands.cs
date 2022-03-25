@@ -142,6 +142,7 @@ namespace DSharpPlus.SlashCommands.TestBot
 		[SlashCommand("error", "Error")]
 		public async Task ErrorCommand(InteractionContext ctx) => throw new Exception("epic error");
 		
-		public async Task LocalTestCommand(InteractionContext ctx) => await ctx.CreateResponseAsync($"Your localization value is: {LocalizationExtensions.GetLanguageFromCode(ctx.Interaction.Locale).GetNativeName()}");
+[SlashCommand("localization-test", "Localization Test Command", applyLocalization: true)]
+public async Task LocalTestCommand(InteractionContext ctx) => await ctx.CreateResponseAsync($"Your localization value is: {LocalizationExtensions.GetLanguageFromCode(ctx.Interaction.Locale).GetNativeName()}");
 	}
 }

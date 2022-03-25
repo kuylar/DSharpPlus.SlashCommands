@@ -14,17 +14,16 @@ namespace DSharpPlus.SlashCommands
 	public class SlashCommandsExtension : BaseExtension
 	{
 		private DiscordClient _client;
-		private IServiceProvider _services;
 
 		private Dictionary<ulong, ApplicationCommand> _commands = new();
 		private List<(ApplicationCommandBuilder Command, ulong GuildId)> _unsubmittedCommands = new();
+		private SlashCommandsConfiguration _config;
 		
 		public Dictionary<ulong, ApplicationCommand> RegisteredCommands => _commands;
 
 		public SlashCommandsExtension(SlashCommandsConfiguration config = null)
 		{
-			config ??= new SlashCommandsConfiguration();
-			_services = config.Services;
+			_config = config ?? new SlashCommandsConfiguration();
 		}
 
 		protected internal override void Setup(DiscordClient client)
@@ -83,6 +82,22 @@ namespace DSharpPlus.SlashCommands
 					.WithName(gAttr.Name)
 					.WithDescription(gAttr.Description);
 
+				if (gAttr.ApplyLocalization)
+				{
+					foreach (Localization language in _config.LocalizationWhitelist)
+					{
+						string name =
+							_config.LocalizationProvider.GetLocalizedString(LocalizationContext.SlashCommandName,
+								language, gAttr.Name);
+						string description =
+							_config.LocalizationProvider.GetLocalizedString(LocalizationContext.SlashCommandDescription,
+								language, gAttr.Description);
+
+						if (name != null) command.WithNameLocalization(language, name);
+						if (description != null) command.WithDescriptionLocalization(language, description);
+					}
+				}
+
 				if (module.GetNestedTypes().Any(x => x.GetCustomAttribute<SlashCommandGroupAttribute>() is not null))
 				{
 					// two-level groups
@@ -96,6 +111,22 @@ namespace DSharpPlus.SlashCommands
 								.WithName(sGAttr.Name)
 								.WithDescription(sGAttr.Description);
 
+						if (sGAttr.ApplyLocalization)
+						{
+							foreach (Localization language in _config.LocalizationWhitelist)
+							{
+								string name =
+									_config.LocalizationProvider.GetLocalizedString(LocalizationContext.SlashCommandName,
+										language, sGAttr.Name);
+								string description =
+									_config.LocalizationProvider.GetLocalizedString(LocalizationContext.SlashCommandDescription,
+										language, sGAttr.Description);
+
+								if (name != null) group.WithNameLocalization(language, name);
+								if (description != null) group.WithDescriptionLocalization(language, description);
+							}
+						}
+
 						foreach (MethodInfo method in g.GetMethods()
 							.Where(x => x.GetCustomAttribute<SlashCommandAttribute>() != null))
 						{
@@ -108,6 +139,22 @@ namespace DSharpPlus.SlashCommands
 									.WithName(attr.Name)
 									.WithDescription(attr.Description)
 									.WithMethod(method);
+
+							if (attr.ApplyLocalization)
+							{
+								foreach (Localization language in _config.LocalizationWhitelist)
+								{
+									string name =
+										_config.LocalizationProvider.GetLocalizedString(LocalizationContext.SlashCommandName,
+											language, attr.Name);
+									string description =
+										_config.LocalizationProvider.GetLocalizedString(LocalizationContext.SlashCommandDescription,
+											language, attr.Description);
+
+									if (name != null) subcommand.WithNameLocalization(language, name);
+									if (description != null) subcommand.WithDescriptionLocalization(language, description);
+								}
+							}
 
 							if (method.GetParameters()[0].ParameterType != typeof(InteractionContext))
 								throw new ArgumentException(
@@ -136,6 +183,22 @@ namespace DSharpPlus.SlashCommands
 							.WithDescription(attr.Description)
 							.WithMethod(method);
 
+					if (attr.ApplyLocalization)
+					{
+						foreach (Localization language in _config.LocalizationWhitelist)
+						{
+							string name =
+								_config.LocalizationProvider.GetLocalizedString(LocalizationContext.SlashCommandName,
+									language, attr.Name);
+							string description =
+								_config.LocalizationProvider.GetLocalizedString(LocalizationContext.SlashCommandDescription,
+									language, attr.Description);
+
+							if (name != null) subcommand.WithNameLocalization(language, name);
+							if (description != null) subcommand.WithDescriptionLocalization(language, description);
+						}
+					}
+
 					if (method.GetParameters()[0].ParameterType != typeof(InteractionContext))
 						throw new ArgumentException(
 							"The first argument on slash commands must be InteractionContext");
@@ -159,6 +222,22 @@ namespace DSharpPlus.SlashCommands
 							.WithName(gAttr.Name)
 							.WithDescription(gAttr.Description);
 
+					if (gAttr.ApplyLocalization)
+					{
+						foreach (Localization language in _config.LocalizationWhitelist)
+						{
+							string name =
+								_config.LocalizationProvider.GetLocalizedString(LocalizationContext.SlashCommandName,
+									language, gAttr.Name);
+							string description =
+								_config.LocalizationProvider.GetLocalizedString(LocalizationContext.SlashCommandDescription,
+									language, gAttr.Description);
+
+							if (name != null) command.WithNameLocalization(language, name);
+							if (description != null) command.WithDescriptionLocalization(language, description);
+						}
+					}
+
 					if (groupType.GetNestedTypes()
 							.Any(x => x.GetCustomAttribute<SlashCommandGroupAttribute>() is not null))
 						// two-level groups
@@ -172,6 +251,22 @@ namespace DSharpPlus.SlashCommands
 									.WithName(sGAttr.Name)
 									.WithDescription(sGAttr.Description);
 
+							if (sGAttr.ApplyLocalization)
+							{
+								foreach (Localization language in _config.LocalizationWhitelist)
+								{
+									string name =
+										_config.LocalizationProvider.GetLocalizedString(LocalizationContext.SlashCommandName,
+											language, sGAttr.Name);
+									string description =
+										_config.LocalizationProvider.GetLocalizedString(LocalizationContext.SlashCommandDescription,
+											language, sGAttr.Description);
+
+									if (name != null) group.WithNameLocalization(language, name);
+									if (description != null) group.WithDescriptionLocalization(language, description);
+								}
+							}
+
 							foreach (MethodInfo method in g.GetMethods()
 								.Where(x => x.GetCustomAttribute<SlashCommandAttribute>() != null))
 							{
@@ -184,6 +279,22 @@ namespace DSharpPlus.SlashCommands
 										.WithName(attr.Name)
 										.WithDescription(attr.Description)
 										.WithMethod(method);
+
+								if (attr.ApplyLocalization)
+								{
+									foreach (Localization language in _config.LocalizationWhitelist)
+									{
+										string name =
+											_config.LocalizationProvider.GetLocalizedString(LocalizationContext.SlashCommandName,
+												language, attr.Name);
+										string description =
+											_config.LocalizationProvider.GetLocalizedString(LocalizationContext.SlashCommandDescription,
+												language, attr.Description);
+
+										if (name != null) subcommand.WithNameLocalization(language, name);
+										if (description != null) subcommand.WithDescriptionLocalization(language, description);
+									}
+								}
 
 								if (method.GetParameters()[0].ParameterType != typeof(InteractionContext))
 									throw new ArgumentException(
@@ -210,6 +321,22 @@ namespace DSharpPlus.SlashCommands
 									.WithName(attr.Name)
 									.WithDescription(attr.Description)
 									.WithMethod(method);
+
+							if (attr.ApplyLocalization)
+							{
+								foreach (Localization language in _config.LocalizationWhitelist)
+								{
+									string name =
+										_config.LocalizationProvider.GetLocalizedString(LocalizationContext.SlashCommandName,
+											language, attr.Name);
+									string description =
+										_config.LocalizationProvider.GetLocalizedString(LocalizationContext.SlashCommandDescription,
+											language, attr.Description);
+
+									if (name != null) subcommand.WithNameLocalization(language, name);
+									if (description != null) subcommand.WithDescriptionLocalization(language, description);
+								}
+							}
 
 							if (method.GetParameters()[0].ParameterType != typeof(InteractionContext))
 								throw new ArgumentException(
@@ -240,6 +367,22 @@ namespace DSharpPlus.SlashCommands
 							.WithDefaultPermission(attr.DefaultPermission)
 							.WithMethod(method);
 
+					if (attr.ApplyLocalization)
+					{
+						foreach (Localization language in _config.LocalizationWhitelist)
+						{
+							string name =
+								_config.LocalizationProvider.GetLocalizedString(LocalizationContext.SlashCommandName,
+									language, attr.Name);
+							string description =
+								_config.LocalizationProvider.GetLocalizedString(LocalizationContext.SlashCommandDescription,
+									language, attr.Description);
+
+							if (name != null) command.WithNameLocalization(language, name);
+							if (description != null) command.WithDescriptionLocalization(language, description);
+						}
+					}
+
 					if (method.GetParameters()[0].ParameterType != typeof(InteractionContext))
 						throw new ArgumentException("The first argument on slash commands must be InteractionContext");
 
@@ -261,6 +404,18 @@ namespace DSharpPlus.SlashCommands
 					.WithName(attr.Name)
 					.WithDefaultPermission(attr.DefaultPermission)
 					.WithMethod(method);
+
+				if (attr.ApplyLocalization)
+				{
+					foreach (Localization language in _config.LocalizationWhitelist)
+					{
+						string name =
+							_config.LocalizationProvider.GetLocalizedString(LocalizationContext.ContextMenuName,
+								language, attr.Name);
+
+						if (name != null) command.WithNameLocalization(language, name);
+					}
+				}
 
 				if (method.GetParameters().Length == 1 &&
 				    method.GetParameters()[0].ParameterType != typeof(ContextMenuContext))
@@ -361,7 +516,7 @@ namespace DSharpPlus.SlashCommands
 					Client = sender,
 					Guild = e.Interaction.Guild,
 					Interaction = e.Interaction,
-					Services = _services,
+					Services = _config.Services,
 					Token = e.Interaction.Token,
 					Type = e.Interaction.Data.Type,
 					User = e.Interaction.User,
@@ -389,7 +544,7 @@ namespace DSharpPlus.SlashCommands
 
 					MethodInfo method = _commands[e.Interaction.Data.Id].Methods[methodName];
 					ApplicationCommandModule instance =
-						(ApplicationCommandModule)InstanceCreator.CreateInstance(method.DeclaringType, _services);
+						(ApplicationCommandModule)InstanceCreator.CreateInstance(method.DeclaringType, _config.Services);
 
 					await PreExecutionChecks(method, ctx);
 					
@@ -428,7 +583,7 @@ namespace DSharpPlus.SlashCommands
 					Client = sender,
 					Guild = e.Interaction.Guild,
 					Interaction = e.Interaction,
-					Services = _services,
+					Services = _config.Services,
 					Token = e.Interaction.Token,
 					Type = e.Interaction.Data.Type,
 					User = e.Interaction.User,
@@ -441,7 +596,7 @@ namespace DSharpPlus.SlashCommands
 
 				MethodInfo method = _commands[e.Interaction.Data.Id].Methods[string.Empty];
 				ApplicationCommandModule instance =
-					(ApplicationCommandModule)InstanceCreator.CreateInstance(method.DeclaringType, _services);
+					(ApplicationCommandModule)InstanceCreator.CreateInstance(method.DeclaringType, _config.Services);
 
 				try
 				{
@@ -497,7 +652,7 @@ namespace DSharpPlus.SlashCommands
 					Client = sender,
 					Guild = e.Interaction.Guild,
 					Interaction = e.Interaction,
-					Services = _services,
+					Services = _config.Services,
 					Options = options.ToList(),
 					User = e.Interaction.User,
 					FocusedOption = focusedOption,
@@ -506,7 +661,7 @@ namespace DSharpPlus.SlashCommands
 
 				MethodInfo method = _commands[e.Interaction.Data.Id].AutocompleteMethods[focusedOption.Name];
 				IAutocompleteProvider instance =
-					(IAutocompleteProvider)InstanceCreator.CreateInstance(method.DeclaringType, _services);
+					(IAutocompleteProvider)InstanceCreator.CreateInstance(method.DeclaringType, _config.Services);
 
 				try
 				{
@@ -600,6 +755,22 @@ namespace DSharpPlus.SlashCommands
 					.WithName(optionAttr?.Name)
 					.WithDescription(optionAttr?.Description)
 					.IsRequired(!parameterInfo.IsOptional);
+
+				if (optionAttr.ApplyLocalization)
+				{
+					foreach (Localization language in _config.LocalizationWhitelist)
+					{
+						string name =
+							_config.LocalizationProvider.GetLocalizedString(LocalizationContext.SlashCommandOptionName,
+								language, optionAttr.Name);
+						string description =
+							_config.LocalizationProvider.GetLocalizedString(LocalizationContext.SlashCommandOptionDescription,
+								language, optionAttr.Description);
+
+						if (name != null) option.WithNameLocalization(language, name);
+						if (description != null) option.WithDescriptionLocalization(language, description);
+					}
+				}
 
 				Type enumType = parameterInfo.ParameterType;
 				if (enumType.IsEnum)

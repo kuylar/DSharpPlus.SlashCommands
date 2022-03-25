@@ -24,16 +24,23 @@ namespace DSharpPlus.SlashCommands
 		public bool DefaultPermission { get; }
 
 		/// <summary>
+		///     Gets whether this command should be localized using an ILocalizationProvider.
+		/// </summary>
+		public bool ApplyLocalization { get; }
+
+		/// <summary>
 		///     Marks this class as a slash command group.
 		/// </summary>
 		/// <param name="name">Sets the name of this command group.</param>
 		/// <param name="description">Sets the description of this command group.</param>
 		/// <param name="defaultPermission">Sets whether this command group is enabled on default.</param>
-		public SlashCommandGroupAttribute(string name, string description, bool defaultPermission = true)
+		/// <param name="applyLocalization">Sets whether the command should be localized using an ILocalizationProvider.</param>
+		public SlashCommandGroupAttribute(string name, string description, bool defaultPermission = true, bool applyLocalization = false)
 		{
 			Name = name.ToLower();
 			Description = description;
 			DefaultPermission = defaultPermission;
+			ApplyLocalization = applyLocalization;
 		}
 	}
 }

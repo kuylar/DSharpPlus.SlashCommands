@@ -35,6 +35,15 @@ namespace DSharpPlus.SlashCommands
 		Korean
 	}
 
+	public enum LocalizationContext
+	{
+		SlashCommandName,
+		SlashCommandDescription,
+		SlashCommandOptionName,
+		SlashCommandOptionDescription,
+		ContextMenuName
+	}
+
 	public static class LocalizationExtensions
 	{
 		public static string GetNativeName(this Localization l) => l switch

@@ -2,7 +2,6 @@
 using System.Linq;
 using System.Threading.Tasks;
 using DSharpPlus.Exceptions;
-using DSharpPlus.SlashCommands.Entities;
 using Microsoft.Extensions.Logging;
 
 namespace DSharpPlus.SlashCommands.TestBot
@@ -23,13 +22,15 @@ namespace DSharpPlus.SlashCommands.TestBot
 
 			_client = new DiscordClient(new DiscordConfiguration
 			{
-				Token = token
+				Token = token,
 			});
 
-			SlashCommandsExtension slash = _client.UseSlashCommands();
+			SlashCommandsExtension slash = _client.UseSlashCommands(new SlashCommandsConfiguration
+			{
+				LocalizationProvider = new LocalizationProvider()
+			});
 
 			const ulong testGuildId = 917263628846108683;
-
 			slash.RegisterCommands<SlashCommands>(testGuildId);
 			slash.RegisterCommands<OneLevelGroup>(testGuildId);
 			slash.RegisterCommands<TwoLevelGroup>(testGuildId);
@@ -38,20 +39,6 @@ namespace DSharpPlus.SlashCommands.TestBot
 			slash.RegisterCommands<ContextMenus>(testGuildId);
 			slash.RegisterCommands<MixedGroups>(testGuildId);
 			slash.RegisterCommands<GlobalCommands>();
-
-			ApplicationCommandBuilder localTestCommand = new ApplicationCommandBuilder(ApplicationCommandType.SlashCommand)
-				.WithName("localetest")
-				.WithDescription("Localization Test (it failed)")
-				.WithMethod(typeof(SlashCommands).GetMethod("LocalTestCommand"));
-			
-			foreach (Localization l in Enum.GetValues(typeof(Localization)))
-			{
-				localTestCommand
-					.WithNameLocalization(l, l.ToString())
-					.WithDescriptionLocalization(l, "Localized to: " + l.GetNativeName());
-			}
-			
-			slash.RegisterCommand(localTestCommand, testGuildId);
 
 			slash.SlashCommandErrored += (sender, args) =>
 			{
