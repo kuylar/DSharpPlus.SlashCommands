@@ -37,10 +37,11 @@ namespace DSharpPlus.SlashCommands
 		/// <param name="applyLocalization">Sets whether the option should be localized using an ILocalizationProvider.</param>
 		public OptionAttribute(string name, string description, bool autocomplete = false, bool applyLocalization = false)
 		{
-			if (name.Length > 32)
-				throw new ArgumentException("Slash command option names cannot go over 32 characters.");
+			if (!Utilities.IsValidSlashCommandName(name))
+				throw new ArgumentException("Invalid slash command name specified. It must be below 32 characters and not contain any whitespace.", "name");
 			if (description.Length > 100)
 				throw new ArgumentException("Slash command option descriptions cannot go over 100 characters.");
+			
 			Name = name.ToLower();
 			Description = description;
 			Autocomplete = autocomplete;
