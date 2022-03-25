@@ -19,6 +19,9 @@ namespace DSharpPlus.SlashCommands.Entities
 		public long? MaxValue { get; private set; }
 		public MethodInfo AutoCompleteMethod { get; private set; }
 		public MethodInfo Method { get; private set; }
+		
+		public Dictionary<Localization, string> NameLocalizations { get; private set; }
+		public Dictionary<Localization, string> DescriptionLocalizations { get; private set; }
 
 		public ApplicationCommandOptionBuilder(ApplicationCommandOptionType type)
 		{
@@ -40,6 +43,8 @@ namespace DSharpPlus.SlashCommands.Entities
 					ChannelType = Array.Empty<ChannelType>();
 					break;
 			}
+			NameLocalizations = new Dictionary<Localization, string>();
+			DescriptionLocalizations = new Dictionary<Localization, string>();
 		}
 
 		/// <summary>
@@ -186,11 +191,43 @@ namespace DSharpPlus.SlashCommands.Entities
 		}
 
 		/// <summary>
+		/// Adds a localization data for this commands name
+		/// </summary>,
+		/// <param name="language">The language to apply this text to</param>
+		/// <param name="value">The text to show with this language</param>
+		/// <returns>The ApplicationCommandBuilder to be chained</returns>
+		public ApplicationCommandOptionBuilder WithNameLocalization(Localization language, string value)
+		{
+			if (NameLocalizations.ContainsKey(language))
+				NameLocalizations[language] = value;
+			else
+				NameLocalizations.Add(language, value);
+			return this;
+		}
+
+		/// <summary>
+		/// Adds a localization data for this commands description
+		/// </summary>,
+		/// <param name="language">The language to apply this text to</param>
+		/// <param name="value">The text to show with this language</param>
+		/// <returns>The ApplicationCommandBuilder to be chained</returns>
+		public ApplicationCommandOptionBuilder WithDescriptionLocalization(Localization language, string value)
+		{
+			if (DescriptionLocalizations.ContainsKey(language))
+				DescriptionLocalizations[language] = value;
+			else
+				DescriptionLocalizations.Add(language, value);
+			return this;
+		}
+
+		/// <summary>
 		/// Builds this ApplicationCommandOptionBuilder
 		/// </summary>
 		/// <returns>A DiscordApplicationCommandOption to be sent to Discord</returns>
 		public DiscordApplicationCommandOption Build() =>
 			new(Name, Description, Type, Required, Choices, Options?.Select(x => x.Build()), ChannelType,
-				AutoCompleteMethod != null, MinValue, MaxValue);
+				AutoCompleteMethod != null, MinValue, MaxValue,
+				DescriptionLocalizations.ToDictionary(x => x.Key.GetLanguageCode(), x => x.Value)
+			);
 	}
 }

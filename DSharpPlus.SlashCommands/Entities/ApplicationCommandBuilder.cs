@@ -14,6 +14,9 @@ namespace DSharpPlus.SlashCommands.Entities
 		public ApplicationCommandType Type { get; private set; }
 		public List<ApplicationCommandOptionBuilder> Options { get; private set; }
 		public MethodInfo Method { get; private set; }
+		
+		public Dictionary<Localization, string> NameLocalizations { get; private set; }
+		public Dictionary<Localization, string> DescriptionLocalizations { get; private set; }
 
 		public ApplicationCommandBuilder(ApplicationCommandType type)
 		{
@@ -21,6 +24,8 @@ namespace DSharpPlus.SlashCommands.Entities
 				throw new ArgumentException("ApplicationCommand type cannot be AutoCompleteRequest");
 			Type = type;
 			if (type == ApplicationCommandType.SlashCommand) Options = new List<ApplicationCommandOptionBuilder>();
+			NameLocalizations = new Dictionary<Localization, string>();
+			DescriptionLocalizations = new Dictionary<Localization, string>();
 		}
 
 		/// <summary>
@@ -90,10 +95,42 @@ namespace DSharpPlus.SlashCommands.Entities
 		}
 
 		/// <summary>
+		/// Adds a localization data for this commands name
+		/// </summary>,
+		/// <param name="language">The language to apply this text to</param>
+		/// <param name="value">The text to show with this language</param>
+		/// <returns>The ApplicationCommandBuilder to be chained</returns>
+		public ApplicationCommandBuilder WithNameLocalization(Localization language, string value)
+		{
+			if (NameLocalizations.ContainsKey(language))
+				NameLocalizations[language] = value;
+			else
+				NameLocalizations.Add(language, value);
+			return this;
+		}
+
+		/// <summary>
+		/// Adds a localization data for this commands description
+		/// </summary>,
+		/// <param name="language">The language to apply this text to</param>
+		/// <param name="value">The text to show with this language</param>
+		/// <returns>The ApplicationCommandBuilder to be chained</returns>
+		public ApplicationCommandBuilder WithDescriptionLocalization(Localization language, string value)
+		{
+			if (DescriptionLocalizations.ContainsKey(language))
+				DescriptionLocalizations[language] = value;
+			else
+				DescriptionLocalizations.Add(language, value);
+			return this;
+		}
+
+		/// <summary>
 		/// Builds this ApplicationCommandBuilder
 		/// </summary>
 		/// <returns>A DiscordApplicationCommand to be sent to Discord</returns>
 		public DiscordApplicationCommand Build() =>
-			new(Name, Description, Options?.Select(x => x.Build()), DefaultPermission, Type);
+			new(Name, Description, Options?.Select(x => x.Build()), DefaultPermission, Type,
+				NameLocalizations.ToDictionary(x => x.Key.GetLanguageCode(), x => x.Value),
+				DescriptionLocalizations.ToDictionary(x => x.Key.GetLanguageCode(), x => x.Value));
 	}
 }
