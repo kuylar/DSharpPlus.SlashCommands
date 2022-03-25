@@ -20,8 +20,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="DSharpPlus" Version="4.2.0-nightly-01082" />
-        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="5.0.2" />
+        <PackageReference Include="DSharpPlus" Version="4.2.0-nightly-01101"/>
     </ItemGroup>
 
 </Project>
