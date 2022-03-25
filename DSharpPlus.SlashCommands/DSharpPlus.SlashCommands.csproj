@@ -12,15 +12,12 @@
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <RepositoryType>git</RepositoryType>
         <PackageTags>discord, dsharpplus</PackageTags>
-        <PackageVersion>1.0.9</PackageVersion>
-
-        <RestoreAdditionalProjectSources>
-            https://nuget.emzi0767.com/api/v3/index.json
-        </RestoreAdditionalProjectSources>
+        <PackageVersion>1.0.10</PackageVersion>
     </PropertyGroup>
 
     <ItemGroup>
         <PackageReference Include="DSharpPlus" Version="4.2.0-nightly-01101"/>
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="5.0.2" />
     </ItemGroup>
 
 </Project>
