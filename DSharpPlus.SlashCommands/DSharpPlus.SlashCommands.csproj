@@ -12,7 +12,7 @@
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <RepositoryType>git</RepositoryType>
         <PackageTags>discord, dsharpplus</PackageTags>
-        <PackageVersion>1.0.11</PackageVersion>
+        <PackageVersion>1.0.12</PackageVersion>
     </PropertyGroup>
 
     <ItemGroup>
