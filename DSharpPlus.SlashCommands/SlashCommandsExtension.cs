@@ -50,22 +50,8 @@ namespace DSharpPlus.SlashCommands
 			_autocompleteExecuted = new AsyncEvent<SlashCommandsExtension, AutocompleteExecutedEventArgs>("AUTOCOMPLETE_EXECUTED", TimeSpan.Zero, client.EventErrorHandler);
 		}
 
-		/// <summary>
-		/// Register a command with a ApplicationCommandBuilder.
-		/// You have to run RefreshCommands if you add any commands after the Ready event
-		/// </summary>
-		/// <param name="command">ApplicationCommandBuilder to add</param>
-		/// <param name="guildId">The ID of the guild to add this command to</param>
-		public void RegisterCommand(ApplicationCommandBuilder command, ulong? guildId = null) =>
-			_unsubmittedCommands.Add((command, guildId ?? 0));
-
-		/// <summary>
-		/// Register a command module.
-		/// You have to run RefreshCommands if you add any commands after the Ready event
-		/// </summary>
-		/// <param name="guildId">The ID of the guild to add this command module to</param>
-		public void RegisterCommands<T>(ulong? guildId = null) => RegisterCommands(typeof(T), guildId);
-
+		#region Reflection (the best part!)
+		
 		/// <summary>
 		/// Register a command module.
 		/// You have to run RefreshCommands if you add any commands after the Ready event
@@ -171,42 +157,8 @@ namespace DSharpPlus.SlashCommands
 
 				// one-level groups
 				foreach (MethodInfo method in module.GetMethods()
-					.Where(x => x.GetCustomAttribute<SlashCommandAttribute>() != null))
-				{
-					SlashCommandAttribute attr = method.GetCustomAttribute<SlashCommandAttribute>();
-
-					if (attr == null) return; // shut up rider
-
-					ApplicationCommandOptionBuilder subcommand =
-						new ApplicationCommandOptionBuilder(ApplicationCommandOptionType.SubCommand)
-							.WithName(attr.Name)
-							.WithDescription(attr.Description)
-							.WithMethod(method);
-
-					if (attr.ApplyLocalization)
-					{
-						foreach (Localization language in _config.LocalizationWhitelist)
-						{
-							string name =
-								_config.LocalizationProvider.GetLocalizedString(LocalizationContext.SlashCommandName,
-									language, attr.Name);
-							string description =
-								_config.LocalizationProvider.GetLocalizedString(LocalizationContext.SlashCommandDescription,
-									language, attr.Description);
-
-							if (name != null) subcommand.WithNameLocalization(language, name);
-							if (description != null) subcommand.WithDescriptionLocalization(language, description);
-						}
-					}
-
-					if (method.GetParameters()[0].ParameterType != typeof(InteractionContext))
-						throw new ArgumentException(
-							"The first argument on slash commands must be InteractionContext");
-
-					subcommand.AddOptions(ParseParameters(method.GetParameters().Skip(1)));
-
-					command.AddOption(subcommand);
-				}
+					.Where(x => x.GetCustomAttribute<SlashCommandAttribute>() != null)) 
+					command.AddOption(ParseSubcommandMethod(method));
 
 				RegisterCommand(command, guildId);
 			}
@@ -269,41 +221,7 @@ namespace DSharpPlus.SlashCommands
 
 							foreach (MethodInfo method in g.GetMethods()
 								.Where(x => x.GetCustomAttribute<SlashCommandAttribute>() != null))
-							{
-								SlashCommandAttribute attr = method.GetCustomAttribute<SlashCommandAttribute>();
-
-								if (attr == null) return; // shut up rider
-
-								ApplicationCommandOptionBuilder subcommand =
-									new ApplicationCommandOptionBuilder(ApplicationCommandOptionType.SubCommand)
-										.WithName(attr.Name)
-										.WithDescription(attr.Description)
-										.WithMethod(method);
-
-								if (attr.ApplyLocalization)
-								{
-									foreach (Localization language in _config.LocalizationWhitelist)
-									{
-										string name =
-											_config.LocalizationProvider.GetLocalizedString(LocalizationContext.SlashCommandName,
-												language, attr.Name);
-										string description =
-											_config.LocalizationProvider.GetLocalizedString(LocalizationContext.SlashCommandDescription,
-												language, attr.Description);
-
-										if (name != null) subcommand.WithNameLocalization(language, name);
-										if (description != null) subcommand.WithDescriptionLocalization(language, description);
-									}
-								}
-
-								if (method.GetParameters()[0].ParameterType != typeof(InteractionContext))
-									throw new ArgumentException(
-										"The first argument on slash commands must be InteractionContext");
-
-								subcommand.AddOptions(ParseParameters(method.GetParameters().Skip(1)));
-
-								group.AddOption(subcommand);
-							}
+								group.AddOption(ParseSubcommandMethod(method));
 
 							command.AddOption(group);
 						}
@@ -311,86 +229,16 @@ namespace DSharpPlus.SlashCommands
 						// one-level groups
 						foreach (MethodInfo method in groupType.GetMethods()
 							.Where(x => x.GetCustomAttribute<SlashCommandAttribute>() != null))
-						{
-							SlashCommandAttribute attr = method.GetCustomAttribute<SlashCommandAttribute>();
-
-							if (attr == null) return; // shut up rider
-
-							ApplicationCommandOptionBuilder subcommand =
-								new ApplicationCommandOptionBuilder(ApplicationCommandOptionType.SubCommand)
-									.WithName(attr.Name)
-									.WithDescription(attr.Description)
-									.WithMethod(method);
-
-							if (attr.ApplyLocalization)
-							{
-								foreach (Localization language in _config.LocalizationWhitelist)
-								{
-									string name =
-										_config.LocalizationProvider.GetLocalizedString(LocalizationContext.SlashCommandName,
-											language, attr.Name);
-									string description =
-										_config.LocalizationProvider.GetLocalizedString(LocalizationContext.SlashCommandDescription,
-											language, attr.Description);
-
-									if (name != null) subcommand.WithNameLocalization(language, name);
-									if (description != null) subcommand.WithDescriptionLocalization(language, description);
-								}
-							}
-
-							if (method.GetParameters()[0].ParameterType != typeof(InteractionContext))
-								throw new ArgumentException(
-									"The first argument on slash commands must be InteractionContext");
-
-							subcommand.AddOptions(ParseParameters(method.GetParameters().Skip(1)));
-
-							command.AddOption(subcommand);
-						}
+							command.AddOption(ParseSubcommandMethod(method));
 
 					RegisterCommand(command, guildId);
 				}
 			} 
 			else
-			{
 				// normal commands
 				foreach (MethodInfo method in module.GetMethods()
 					.Where(x => x.GetCustomAttribute<SlashCommandAttribute>() != null))
-				{
-					SlashCommandAttribute attr = method.GetCustomAttribute<SlashCommandAttribute>();
-
-					if (attr == null) return; // shut up rider
-
-					ApplicationCommandBuilder command =
-						new ApplicationCommandBuilder(ApplicationCommandType.SlashCommand)
-							.WithName(attr.Name)
-							.WithDescription(attr.Description)
-							.WithDefaultPermission(attr.DefaultPermission)
-							.WithMethod(method);
-
-					if (attr.ApplyLocalization)
-					{
-						foreach (Localization language in _config.LocalizationWhitelist)
-						{
-							string name =
-								_config.LocalizationProvider.GetLocalizedString(LocalizationContext.SlashCommandName,
-									language, attr.Name);
-							string description =
-								_config.LocalizationProvider.GetLocalizedString(LocalizationContext.SlashCommandDescription,
-									language, attr.Description);
-
-							if (name != null) command.WithNameLocalization(language, name);
-							if (description != null) command.WithDescriptionLocalization(language, description);
-						}
-					}
-
-					if (method.GetParameters()[0].ParameterType != typeof(InteractionContext))
-						throw new ArgumentException("The first argument on slash commands must be InteractionContext");
-
-					command.AddOptions(ParseParameters(method.GetParameters().Skip(1)));
-
-					RegisterCommand(command, guildId);
-				}
-			}
+					ParseCommandMethod(method, guildId ?? 0);
 
 			// context menus
 			foreach (MethodInfo method in module.GetMethods()
@@ -424,6 +272,100 @@ namespace DSharpPlus.SlashCommands
 				RegisterCommand(command, guildId);
 			}
 		}
+
+		private void ParseCommandMethod(MethodInfo method, ulong guildId)
+		{
+			SlashCommandAttribute attr = method.GetCustomAttribute<SlashCommandAttribute>();
+
+			if (attr == null) return; // shut up rider
+
+			ApplicationCommandBuilder command =
+				new ApplicationCommandBuilder(ApplicationCommandType.SlashCommand)
+					.WithName(attr.Name)
+					.WithDescription(attr.Description)
+					.WithDefaultPermission(attr.DefaultPermission)
+					.WithMethod(method);
+
+			if (attr.ApplyLocalization)
+			{
+				foreach (Localization language in _config.LocalizationWhitelist)
+				{
+					string name =
+						_config.LocalizationProvider.GetLocalizedString(LocalizationContext.SlashCommandName,
+							language, attr.Name);
+					string description =
+						_config.LocalizationProvider.GetLocalizedString(LocalizationContext.SlashCommandDescription,
+							language, attr.Description);
+
+					if (name != null) command.WithNameLocalization(language, name);
+					if (description != null) command.WithDescriptionLocalization(language, description);
+				}
+			}
+
+			if (method.GetParameters()[0].ParameterType != typeof(InteractionContext))
+				throw new ArgumentException("The first argument on slash commands must be InteractionContext");
+
+			command.AddOptions(ParseParameters(method.GetParameters().Skip(1)));
+
+			RegisterCommand(command, guildId);
+		}
+
+		private ApplicationCommandOptionBuilder ParseSubcommandMethod(MethodInfo method)
+		{
+			SlashCommandAttribute attr = method.GetCustomAttribute<SlashCommandAttribute>();
+
+			if (attr == null) return null; // shut up rider (this should never happen so its fine :thumbs_up:)
+
+			ApplicationCommandOptionBuilder subcommand =
+				new ApplicationCommandOptionBuilder(ApplicationCommandOptionType.SubCommand)
+					.WithName(attr.Name)
+					.WithDescription(attr.Description)
+					.WithMethod(method);
+
+			if (attr.ApplyLocalization)
+			{
+				foreach (Localization language in _config.LocalizationWhitelist)
+				{
+					string name =
+						_config.LocalizationProvider.GetLocalizedString(LocalizationContext.SlashCommandName,
+							language, attr.Name);
+					string description =
+						_config.LocalizationProvider.GetLocalizedString(LocalizationContext.SlashCommandDescription,
+							language, attr.Description);
+
+					if (name != null) subcommand.WithNameLocalization(language, name);
+					if (description != null) subcommand.WithDescriptionLocalization(language, description);
+				}
+			}
+
+			if (method.GetParameters()[0].ParameterType != typeof(InteractionContext))
+				throw new ArgumentException(
+					"The first argument on slash commands must be InteractionContext");
+
+			subcommand.AddOptions(ParseParameters(method.GetParameters().Skip(1)));
+
+			return subcommand;
+		}
+
+		#endregion
+		
+		#region Registering
+
+		/// <summary>
+		/// Register a command with a ApplicationCommandBuilder.
+		/// You have to run RefreshCommands if you add any commands after the Ready event
+		/// </summary>
+		/// <param name="command">ApplicationCommandBuilder to add</param>
+		/// <param name="guildId">The ID of the guild to add this command to</param>
+		public void RegisterCommand(ApplicationCommandBuilder command, ulong? guildId = null) =>
+			_unsubmittedCommands.Add((command, guildId ?? 0));
+
+		/// <summary>
+		/// Register a command module.
+		/// You have to run RefreshCommands if you add any commands after the Ready event
+		/// </summary>
+		/// <param name="guildId">The ID of the guild to add this command module to</param>
+		public void RegisterCommands<T>(ulong? guildId = null) => RegisterCommands(typeof(T), guildId);
 
 		/// <summary>
 		/// Automatically find and register all command modules from an assembly.
@@ -460,6 +402,8 @@ namespace DSharpPlus.SlashCommands
 
 		private async Task OnGuildAvailable(DiscordClient sender, GuildCreateEventArgs args) => await PushCommands(args.Guild.Id);
 
+#pragma warning disable 1998
+#pragma warning disable 4014
 		private async Task PushCommands(ulong? guildId = 0)
 		{
 			guildId ??= 0;
@@ -481,6 +425,10 @@ namespace DSharpPlus.SlashCommands
 					_commands.Add(dac.Id, new ApplicationCommand(commands.First(x => x.Name == dac.Name), guildId ?? 0));
 			});
 		}
+#pragma warning restore 1998
+#pragma warning restore 4014
+
+		#endregion
 
 		#region Handling
 
@@ -716,8 +664,6 @@ namespace DSharpPlus.SlashCommands
 		// ReSharper restore AssignNullToNotNullAttribute
 		// ReSharper restore PossibleNullReferenceException
 
-		#endregion
-
 		private ApplicationCommandOptionBuilder[] ParseParameters(IEnumerable<ParameterInfo> parameters)
 		{
 			List<ApplicationCommandOptionBuilder> res = new();
@@ -904,6 +850,8 @@ namespace DSharpPlus.SlashCommands
 			throw new ArgumentOutOfRangeException(nameof(type), type,
 				"Slash command option types can be one of string, long, bool, double, DiscordUser, DiscordChannel, DiscordRole, SnowflakeObject, Enum");
 		}
+
+		#endregion
 
 		#region Events
 		
