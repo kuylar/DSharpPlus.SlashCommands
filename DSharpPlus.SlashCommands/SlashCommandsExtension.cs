@@ -48,6 +48,8 @@ namespace DSharpPlus.SlashCommands
 			_contextMenuInvoked = new AsyncEvent<SlashCommandsExtension, ContextMenuInvokedEventArgs>("CONTEXTMENU_RECEIVED", TimeSpan.Zero, client.EventErrorHandler);
 			_autocompleteErrored = new AsyncEvent<SlashCommandsExtension, AutocompleteErrorEventArgs>("AUTOCOMPLETE_ERRORED", TimeSpan.Zero, client.EventErrorHandler);
 			_autocompleteExecuted = new AsyncEvent<SlashCommandsExtension, AutocompleteExecutedEventArgs>("AUTOCOMPLETE_EXECUTED", TimeSpan.Zero, client.EventErrorHandler);
+			_appComRegFailed = new AsyncEvent<SlashCommandsExtension, ApplicationCommandRegisterFailedEventArgs>("APPLICATION_COMMAND_REGISTER_FAILED", TimeSpan.Zero, client.EventErrorHandler);
+			_appComRegSuccess = new AsyncEvent<SlashCommandsExtension, ApplicationCommandRegisteredEventArgs>("APPLICATION_COMMAND_REGISTER_SUCCESS", TimeSpan.Zero, client.EventErrorHandler);
 		}
 
 		#region Reflection (the best part!)
@@ -409,20 +411,50 @@ namespace DSharpPlus.SlashCommands
 			guildId ??= 0;
 			Task.Run(async () =>
 			{
-				ApplicationCommandBuilder[] commands =
-					_unsubmittedCommands.Where(x => x.GuildId == guildId).Select(x => x.Command).ToArray();
-				IEnumerable<DiscordApplicationCommand> dcCommands;
-				if (guildId == 0)
-					dcCommands = await _client.BulkOverwriteGlobalApplicationCommandsAsync(commands.Select(x => x.Build()));
-				else
-					dcCommands = await _client.BulkOverwriteGuildApplicationCommandsAsync(guildId ?? 0,
-						commands.Select(x => x.Build()));
-				
-				foreach ((ulong key, ApplicationCommand _) in _commands.Where(x => x.Value.GuildId == guildId).ToArray())
-					_commands.Remove(key);
+				try
+				{
+					ApplicationCommandBuilder[] commands =
+						_unsubmittedCommands.Where(x => x.GuildId == guildId).Select(x => x.Command).ToArray();
+					if (commands.Length == 0)
+					{
+						_appComRegSuccess.InvokeAsync(this, new ApplicationCommandRegisteredEventArgs
+						{
+							GuildId = guildId == 0 ? null : guildId,
+							Commands = Array.Empty<DiscordApplicationCommand>()
+						});
 
-				foreach (DiscordApplicationCommand dac in dcCommands)
-					_commands.Add(dac.Id, new ApplicationCommand(commands.First(x => x.Name == dac.Name), guildId ?? 0));
+						return;
+					}
+					IEnumerable<DiscordApplicationCommand> dcCommands;
+					if (guildId == 0)
+						dcCommands =
+							await _client.BulkOverwriteGlobalApplicationCommandsAsync(commands.Select(x => x.Build()));
+					else
+						dcCommands = await _client.BulkOverwriteGuildApplicationCommandsAsync(guildId ?? 0,
+							commands.Select(x => x.Build()));
+
+					foreach ((ulong key, ApplicationCommand _) in _commands.Where(x => x.Value.GuildId == guildId)
+						.ToArray())
+						_commands.Remove(key);
+
+					foreach (DiscordApplicationCommand dac in dcCommands)
+						_commands.Add(dac.Id,
+							new ApplicationCommand(commands.First(x => x.Name == dac.Name), guildId ?? 0));
+
+					_appComRegSuccess.InvokeAsync(this, new ApplicationCommandRegisteredEventArgs
+					{
+						GuildId = guildId == 0 ? null : guildId,
+						Commands = dcCommands
+					});
+				}
+				catch (Exception e)
+				{
+					_appComRegFailed.InvokeAsync(this, new ApplicationCommandRegisterFailedEventArgs
+					{
+						Exception = e,
+						GuildId = guildId == 0 ? null : guildId
+					});
+				}
 			});
 		}
 #pragma warning restore 1998
@@ -918,6 +950,22 @@ namespace DSharpPlus.SlashCommands
 		}
 
 		private AsyncEvent<SlashCommandsExtension, AutocompleteExecutedEventArgs> _autocompleteExecuted;
+		
+		public event AsyncEventHandler<SlashCommandsExtension, ApplicationCommandRegisterFailedEventArgs> ApplicationCommandRegisterFailed
+		{
+			add => _appComRegFailed.Register(value);
+			remove { _appComRegFailed.Unregister(value); }
+		}
+
+		private AsyncEvent<SlashCommandsExtension, ApplicationCommandRegisterFailedEventArgs> _appComRegFailed;
+
+		public event AsyncEventHandler<SlashCommandsExtension, ApplicationCommandRegisteredEventArgs> ApplicationCommandRegistered
+		{
+			add => _appComRegSuccess.Register(value);
+			remove => _appComRegSuccess.Unregister(value);
+		}
+
+		private AsyncEvent<SlashCommandsExtension, ApplicationCommandRegisteredEventArgs> _appComRegSuccess;
 
 		#endregion
 	}
