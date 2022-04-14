@@ -14,17 +14,16 @@ namespace DSharpPlus.SlashCommands
 	public class SlashCommandsExtension : BaseExtension
 	{
 		private DiscordClient _client;
-		private IServiceProvider _services;
 
 		private Dictionary<ulong, ApplicationCommand> _commands = new();
 		private List<(ApplicationCommandBuilder Command, ulong GuildId)> _unsubmittedCommands = new();
+		private SlashCommandsConfiguration _config;
 		
 		public Dictionary<ulong, ApplicationCommand> RegisteredCommands => _commands;
 
 		public SlashCommandsExtension(SlashCommandsConfiguration config = null)
 		{
-			config ??= new SlashCommandsConfiguration();
-			_services = config.Services;
+			_config = config ?? new SlashCommandsConfiguration();
 		}
 
 		protected internal override void Setup(DiscordClient client)
@@ -49,24 +48,12 @@ namespace DSharpPlus.SlashCommands
 			_contextMenuInvoked = new AsyncEvent<SlashCommandsExtension, ContextMenuInvokedEventArgs>("CONTEXTMENU_RECEIVED", TimeSpan.Zero, client.EventErrorHandler);
 			_autocompleteErrored = new AsyncEvent<SlashCommandsExtension, AutocompleteErrorEventArgs>("AUTOCOMPLETE_ERRORED", TimeSpan.Zero, client.EventErrorHandler);
 			_autocompleteExecuted = new AsyncEvent<SlashCommandsExtension, AutocompleteExecutedEventArgs>("AUTOCOMPLETE_EXECUTED", TimeSpan.Zero, client.EventErrorHandler);
+			_appComRegFailed = new AsyncEvent<SlashCommandsExtension, ApplicationCommandRegisterFailedEventArgs>("APPLICATION_COMMAND_REGISTER_FAILED", TimeSpan.Zero, client.EventErrorHandler);
+			_appComRegSuccess = new AsyncEvent<SlashCommandsExtension, ApplicationCommandRegisteredEventArgs>("APPLICATION_COMMAND_REGISTER_SUCCESS", TimeSpan.Zero, client.EventErrorHandler);
 		}
 
-		/// <summary>
-		/// Register a command with a ApplicationCommandBuilder.
-		/// You have to run RefreshCommands if you add any commands after the Ready event
-		/// </summary>
-		/// <param name="command">ApplicationCommandBuilder to add</param>
-		/// <param name="guildId">The ID of the guild to add this command to</param>
-		public void RegisterCommand(ApplicationCommandBuilder command, ulong? guildId = null) =>
-			_unsubmittedCommands.Add((command, guildId ?? 0));
-
-		/// <summary>
-		/// Register a command module.
-		/// You have to run RefreshCommands if you add any commands after the Ready event
-		/// </summary>
-		/// <param name="guildId">The ID of the guild to add this command module to</param>
-		public void RegisterCommands<T>(ulong? guildId = null) => RegisterCommands(typeof(T), guildId);
-
+		#region Reflection (the best part!)
+		
 		/// <summary>
 		/// Register a command module.
 		/// You have to run RefreshCommands if you add any commands after the Ready event
@@ -83,6 +70,22 @@ namespace DSharpPlus.SlashCommands
 					.WithName(gAttr.Name)
 					.WithDescription(gAttr.Description);
 
+				if (gAttr.ApplyLocalization)
+				{
+					foreach (Localization language in _config.LocalizationWhitelist)
+					{
+						string name =
+							_config.LocalizationProvider.GetLocalizedString(LocalizationContext.SlashCommandName,
+								language, gAttr.Name);
+						string description =
+							_config.LocalizationProvider.GetLocalizedString(LocalizationContext.SlashCommandDescription,
+								language, gAttr.Description);
+
+						if (name != null) command.WithNameLocalization(language, name);
+						if (description != null) command.WithDescriptionLocalization(language, description);
+					}
+				}
+
 				if (module.GetNestedTypes().Any(x => x.GetCustomAttribute<SlashCommandGroupAttribute>() is not null))
 				{
 					// two-level groups
@@ -96,6 +99,22 @@ namespace DSharpPlus.SlashCommands
 								.WithName(sGAttr.Name)
 								.WithDescription(sGAttr.Description);
 
+						if (sGAttr.ApplyLocalization)
+						{
+							foreach (Localization language in _config.LocalizationWhitelist)
+							{
+								string name =
+									_config.LocalizationProvider.GetLocalizedString(LocalizationContext.SlashCommandName,
+										language, sGAttr.Name);
+								string description =
+									_config.LocalizationProvider.GetLocalizedString(LocalizationContext.SlashCommandDescription,
+										language, sGAttr.Description);
+
+								if (name != null) group.WithNameLocalization(language, name);
+								if (description != null) group.WithDescriptionLocalization(language, description);
+							}
+						}
+
 						foreach (MethodInfo method in g.GetMethods()
 							.Where(x => x.GetCustomAttribute<SlashCommandAttribute>() != null))
 						{
@@ -108,6 +127,22 @@ namespace DSharpPlus.SlashCommands
 									.WithName(attr.Name)
 									.WithDescription(attr.Description)
 									.WithMethod(method);
+
+							if (attr.ApplyLocalization)
+							{
+								foreach (Localization language in _config.LocalizationWhitelist)
+								{
+									string name =
+										_config.LocalizationProvider.GetLocalizedString(LocalizationContext.SlashCommandName,
+											language, attr.Name);
+									string description =
+										_config.LocalizationProvider.GetLocalizedString(LocalizationContext.SlashCommandDescription,
+											language, attr.Description);
+
+									if (name != null) subcommand.WithNameLocalization(language, name);
+									if (description != null) subcommand.WithDescriptionLocalization(language, description);
+								}
+							}
 
 							if (method.GetParameters()[0].ParameterType != typeof(InteractionContext))
 								throw new ArgumentException(
@@ -124,26 +159,8 @@ namespace DSharpPlus.SlashCommands
 
 				// one-level groups
 				foreach (MethodInfo method in module.GetMethods()
-					.Where(x => x.GetCustomAttribute<SlashCommandAttribute>() != null))
-				{
-					SlashCommandAttribute attr = method.GetCustomAttribute<SlashCommandAttribute>();
-
-					if (attr == null) return; // shut up rider
-
-					ApplicationCommandOptionBuilder subcommand =
-						new ApplicationCommandOptionBuilder(ApplicationCommandOptionType.SubCommand)
-							.WithName(attr.Name)
-							.WithDescription(attr.Description)
-							.WithMethod(method);
-
-					if (method.GetParameters()[0].ParameterType != typeof(InteractionContext))
-						throw new ArgumentException(
-							"The first argument on slash commands must be InteractionContext");
-
-					subcommand.AddOptions(ParseParameters(method.GetParameters().Skip(1)));
-
-					command.AddOption(subcommand);
-				}
+					.Where(x => x.GetCustomAttribute<SlashCommandAttribute>() != null)) 
+					command.AddOption(ParseSubcommandMethod(method));
 
 				RegisterCommand(command, guildId);
 			}
@@ -159,6 +176,22 @@ namespace DSharpPlus.SlashCommands
 							.WithName(gAttr.Name)
 							.WithDescription(gAttr.Description);
 
+					if (gAttr.ApplyLocalization)
+					{
+						foreach (Localization language in _config.LocalizationWhitelist)
+						{
+							string name =
+								_config.LocalizationProvider.GetLocalizedString(LocalizationContext.SlashCommandName,
+									language, gAttr.Name);
+							string description =
+								_config.LocalizationProvider.GetLocalizedString(LocalizationContext.SlashCommandDescription,
+									language, gAttr.Description);
+
+							if (name != null) command.WithNameLocalization(language, name);
+							if (description != null) command.WithDescriptionLocalization(language, description);
+						}
+					}
+
 					if (groupType.GetNestedTypes()
 							.Any(x => x.GetCustomAttribute<SlashCommandGroupAttribute>() is not null))
 						// two-level groups
@@ -172,27 +205,25 @@ namespace DSharpPlus.SlashCommands
 									.WithName(sGAttr.Name)
 									.WithDescription(sGAttr.Description);
 
+							if (sGAttr.ApplyLocalization)
+							{
+								foreach (Localization language in _config.LocalizationWhitelist)
+								{
+									string name =
+										_config.LocalizationProvider.GetLocalizedString(LocalizationContext.SlashCommandName,
+											language, sGAttr.Name);
+									string description =
+										_config.LocalizationProvider.GetLocalizedString(LocalizationContext.SlashCommandDescription,
+											language, sGAttr.Description);
+
+									if (name != null) group.WithNameLocalization(language, name);
+									if (description != null) group.WithDescriptionLocalization(language, description);
+								}
+							}
+
 							foreach (MethodInfo method in g.GetMethods()
 								.Where(x => x.GetCustomAttribute<SlashCommandAttribute>() != null))
-							{
-								SlashCommandAttribute attr = method.GetCustomAttribute<SlashCommandAttribute>();
-
-								if (attr == null) return; // shut up rider
-
-								ApplicationCommandOptionBuilder subcommand =
-									new ApplicationCommandOptionBuilder(ApplicationCommandOptionType.SubCommand)
-										.WithName(attr.Name)
-										.WithDescription(attr.Description)
-										.WithMethod(method);
-
-								if (method.GetParameters()[0].ParameterType != typeof(InteractionContext))
-									throw new ArgumentException(
-										"The first argument on slash commands must be InteractionContext");
-
-								subcommand.AddOptions(ParseParameters(method.GetParameters().Skip(1)));
-
-								group.AddOption(subcommand);
-							}
+								group.AddOption(ParseSubcommandMethod(method));
 
 							command.AddOption(group);
 						}
@@ -200,54 +231,16 @@ namespace DSharpPlus.SlashCommands
 						// one-level groups
 						foreach (MethodInfo method in groupType.GetMethods()
 							.Where(x => x.GetCustomAttribute<SlashCommandAttribute>() != null))
-						{
-							SlashCommandAttribute attr = method.GetCustomAttribute<SlashCommandAttribute>();
-
-							if (attr == null) return; // shut up rider
-
-							ApplicationCommandOptionBuilder subcommand =
-								new ApplicationCommandOptionBuilder(ApplicationCommandOptionType.SubCommand)
-									.WithName(attr.Name)
-									.WithDescription(attr.Description)
-									.WithMethod(method);
-
-							if (method.GetParameters()[0].ParameterType != typeof(InteractionContext))
-								throw new ArgumentException(
-									"The first argument on slash commands must be InteractionContext");
-
-							subcommand.AddOptions(ParseParameters(method.GetParameters().Skip(1)));
-
-							command.AddOption(subcommand);
-						}
+							command.AddOption(ParseSubcommandMethod(method));
 
 					RegisterCommand(command, guildId);
 				}
 			} 
 			else
-			{
 				// normal commands
 				foreach (MethodInfo method in module.GetMethods()
 					.Where(x => x.GetCustomAttribute<SlashCommandAttribute>() != null))
-				{
-					SlashCommandAttribute attr = method.GetCustomAttribute<SlashCommandAttribute>();
-
-					if (attr == null) return; // shut up rider
-
-					ApplicationCommandBuilder command =
-						new ApplicationCommandBuilder(ApplicationCommandType.SlashCommand)
-							.WithName(attr.Name)
-							.WithDescription(attr.Description)
-							.WithDefaultPermission(attr.DefaultPermission)
-							.WithMethod(method);
-
-					if (method.GetParameters()[0].ParameterType != typeof(InteractionContext))
-						throw new ArgumentException("The first argument on slash commands must be InteractionContext");
-
-					command.AddOptions(ParseParameters(method.GetParameters().Skip(1)));
-
-					RegisterCommand(command, guildId);
-				}
-			}
+					ParseCommandMethod(method, guildId ?? 0);
 
 			// context menus
 			foreach (MethodInfo method in module.GetMethods()
@@ -262,6 +255,18 @@ namespace DSharpPlus.SlashCommands
 					.WithDefaultPermission(attr.DefaultPermission)
 					.WithMethod(method);
 
+				if (attr.ApplyLocalization)
+				{
+					foreach (Localization language in _config.LocalizationWhitelist)
+					{
+						string name =
+							_config.LocalizationProvider.GetLocalizedString(LocalizationContext.ContextMenuName,
+								language, attr.Name);
+
+						if (name != null) command.WithNameLocalization(language, name);
+					}
+				}
+
 				if (method.GetParameters().Length == 1 &&
 				    method.GetParameters()[0].ParameterType != typeof(ContextMenuContext))
 					throw new ArgumentException("The only argument on context menus must be a ContextMenuContext");
@@ -269,6 +274,100 @@ namespace DSharpPlus.SlashCommands
 				RegisterCommand(command, guildId);
 			}
 		}
+
+		private void ParseCommandMethod(MethodInfo method, ulong guildId)
+		{
+			SlashCommandAttribute attr = method.GetCustomAttribute<SlashCommandAttribute>();
+
+			if (attr == null) return; // shut up rider
+
+			ApplicationCommandBuilder command =
+				new ApplicationCommandBuilder(ApplicationCommandType.SlashCommand)
+					.WithName(attr.Name)
+					.WithDescription(attr.Description)
+					.WithDefaultPermission(attr.DefaultPermission)
+					.WithMethod(method);
+
+			if (attr.ApplyLocalization)
+			{
+				foreach (Localization language in _config.LocalizationWhitelist)
+				{
+					string name =
+						_config.LocalizationProvider.GetLocalizedString(LocalizationContext.SlashCommandName,
+							language, attr.Name);
+					string description =
+						_config.LocalizationProvider.GetLocalizedString(LocalizationContext.SlashCommandDescription,
+							language, attr.Description);
+
+					if (name != null) command.WithNameLocalization(language, name);
+					if (description != null) command.WithDescriptionLocalization(language, description);
+				}
+			}
+
+			if (method.GetParameters()[0].ParameterType != typeof(InteractionContext))
+				throw new ArgumentException("The first argument on slash commands must be InteractionContext");
+
+			command.AddOptions(ParseParameters(method.GetParameters().Skip(1)));
+
+			RegisterCommand(command, guildId);
+		}
+
+		private ApplicationCommandOptionBuilder ParseSubcommandMethod(MethodInfo method)
+		{
+			SlashCommandAttribute attr = method.GetCustomAttribute<SlashCommandAttribute>();
+
+			if (attr == null) return null; // shut up rider (this should never happen so its fine :thumbs_up:)
+
+			ApplicationCommandOptionBuilder subcommand =
+				new ApplicationCommandOptionBuilder(ApplicationCommandOptionType.SubCommand)
+					.WithName(attr.Name)
+					.WithDescription(attr.Description)
+					.WithMethod(method);
+
+			if (attr.ApplyLocalization)
+			{
+				foreach (Localization language in _config.LocalizationWhitelist)
+				{
+					string name =
+						_config.LocalizationProvider.GetLocalizedString(LocalizationContext.SlashCommandName,
+							language, attr.Name);
+					string description =
+						_config.LocalizationProvider.GetLocalizedString(LocalizationContext.SlashCommandDescription,
+							language, attr.Description);
+
+					if (name != null) subcommand.WithNameLocalization(language, name);
+					if (description != null) subcommand.WithDescriptionLocalization(language, description);
+				}
+			}
+
+			if (method.GetParameters()[0].ParameterType != typeof(InteractionContext))
+				throw new ArgumentException(
+					"The first argument on slash commands must be InteractionContext");
+
+			subcommand.AddOptions(ParseParameters(method.GetParameters().Skip(1)));
+
+			return subcommand;
+		}
+
+		#endregion
+		
+		#region Registering
+
+		/// <summary>
+		/// Register a command with a ApplicationCommandBuilder.
+		/// You have to run RefreshCommands if you add any commands after the Ready event
+		/// </summary>
+		/// <param name="command">ApplicationCommandBuilder to add</param>
+		/// <param name="guildId">The ID of the guild to add this command to</param>
+		public void RegisterCommand(ApplicationCommandBuilder command, ulong? guildId = null) =>
+			_unsubmittedCommands.Add((command, guildId ?? 0));
+
+		/// <summary>
+		/// Register a command module.
+		/// You have to run RefreshCommands if you add any commands after the Ready event
+		/// </summary>
+		/// <param name="guildId">The ID of the guild to add this command module to</param>
+		public void RegisterCommands<T>(ulong? guildId = null) => RegisterCommands(typeof(T), guildId);
 
 		/// <summary>
 		/// Automatically find and register all command modules from an assembly.
@@ -305,27 +404,63 @@ namespace DSharpPlus.SlashCommands
 
 		private async Task OnGuildAvailable(DiscordClient sender, GuildCreateEventArgs args) => await PushCommands(args.Guild.Id);
 
+#pragma warning disable 1998
+#pragma warning disable 4014
 		private async Task PushCommands(ulong? guildId = 0)
 		{
 			guildId ??= 0;
 			Task.Run(async () =>
 			{
-				ApplicationCommandBuilder[] commands =
-					_unsubmittedCommands.Where(x => x.GuildId == guildId).Select(x => x.Command).ToArray();
-				IEnumerable<DiscordApplicationCommand> dcCommands;
-				if (guildId == 0)
-					dcCommands = await _client.BulkOverwriteGlobalApplicationCommandsAsync(commands.Select(x => x.Build()));
-				else
-					dcCommands = await _client.BulkOverwriteGuildApplicationCommandsAsync(guildId ?? 0,
-						commands.Select(x => x.Build()));
-				
-				foreach ((ulong key, ApplicationCommand _) in _commands.Where(x => x.Value.GuildId == guildId).ToArray())
-					_commands.Remove(key);
+				try
+				{
+					ApplicationCommandBuilder[] commands =
+						_unsubmittedCommands.Where(x => x.GuildId == guildId).Select(x => x.Command).ToArray();
+					if (commands.Length == 0)
+					{
+						_appComRegSuccess.InvokeAsync(this, new ApplicationCommandRegisteredEventArgs
+						{
+							GuildId = guildId == 0 ? null : guildId,
+							Commands = Array.Empty<DiscordApplicationCommand>()
+						});
 
-				foreach (DiscordApplicationCommand dac in dcCommands)
-					_commands.Add(dac.Id, new ApplicationCommand(commands.First(x => x.Name == dac.Name), guildId ?? 0));
+						return;
+					}
+					IEnumerable<DiscordApplicationCommand> dcCommands;
+					if (guildId == 0)
+						dcCommands =
+							await _client.BulkOverwriteGlobalApplicationCommandsAsync(commands.Select(x => x.Build()));
+					else
+						dcCommands = await _client.BulkOverwriteGuildApplicationCommandsAsync(guildId ?? 0,
+							commands.Select(x => x.Build()));
+
+					foreach ((ulong key, ApplicationCommand _) in _commands.Where(x => x.Value.GuildId == guildId)
+						.ToArray())
+						_commands.Remove(key);
+
+					foreach (DiscordApplicationCommand dac in dcCommands)
+						_commands.Add(dac.Id,
+							new ApplicationCommand(commands.First(x => x.Name == dac.Name), guildId ?? 0));
+
+					_appComRegSuccess.InvokeAsync(this, new ApplicationCommandRegisteredEventArgs
+					{
+						GuildId = guildId == 0 ? null : guildId,
+						Commands = dcCommands
+					});
+				}
+				catch (Exception e)
+				{
+					_appComRegFailed.InvokeAsync(this, new ApplicationCommandRegisterFailedEventArgs
+					{
+						Exception = e,
+						GuildId = guildId == 0 ? null : guildId
+					});
+				}
 			});
 		}
+#pragma warning restore 1998
+#pragma warning restore 4014
+
+		#endregion
 
 		#region Handling
 
@@ -361,7 +496,7 @@ namespace DSharpPlus.SlashCommands
 					Client = sender,
 					Guild = e.Interaction.Guild,
 					Interaction = e.Interaction,
-					Services = _services,
+					Services = _config.Services,
 					Token = e.Interaction.Token,
 					Type = e.Interaction.Data.Type,
 					User = e.Interaction.User,
@@ -389,7 +524,7 @@ namespace DSharpPlus.SlashCommands
 
 					MethodInfo method = _commands[e.Interaction.Data.Id].Methods[methodName];
 					ApplicationCommandModule instance =
-						(ApplicationCommandModule)InstanceCreator.CreateInstance(method.DeclaringType, _services);
+						(ApplicationCommandModule)InstanceCreator.CreateInstance(method.DeclaringType, _config.Services);
 
 					await PreExecutionChecks(method, ctx);
 					
@@ -428,7 +563,7 @@ namespace DSharpPlus.SlashCommands
 					Client = sender,
 					Guild = e.Interaction.Guild,
 					Interaction = e.Interaction,
-					Services = _services,
+					Services = _config.Services,
 					Token = e.Interaction.Token,
 					Type = e.Interaction.Data.Type,
 					User = e.Interaction.User,
@@ -441,7 +576,7 @@ namespace DSharpPlus.SlashCommands
 
 				MethodInfo method = _commands[e.Interaction.Data.Id].Methods[string.Empty];
 				ApplicationCommandModule instance =
-					(ApplicationCommandModule)InstanceCreator.CreateInstance(method.DeclaringType, _services);
+					(ApplicationCommandModule)InstanceCreator.CreateInstance(method.DeclaringType, _config.Services);
 
 				try
 				{
@@ -497,7 +632,7 @@ namespace DSharpPlus.SlashCommands
 					Client = sender,
 					Guild = e.Interaction.Guild,
 					Interaction = e.Interaction,
-					Services = _services,
+					Services = _config.Services,
 					Options = options.ToList(),
 					User = e.Interaction.User,
 					FocusedOption = focusedOption,
@@ -506,7 +641,7 @@ namespace DSharpPlus.SlashCommands
 
 				MethodInfo method = _commands[e.Interaction.Data.Id].AutocompleteMethods[focusedOption.Name];
 				IAutocompleteProvider instance =
-					(IAutocompleteProvider)InstanceCreator.CreateInstance(method.DeclaringType, _services);
+					(IAutocompleteProvider)InstanceCreator.CreateInstance(method.DeclaringType, _config.Services);
 
 				try
 				{
@@ -561,8 +696,6 @@ namespace DSharpPlus.SlashCommands
 		// ReSharper restore AssignNullToNotNullAttribute
 		// ReSharper restore PossibleNullReferenceException
 
-		#endregion
-
 		private ApplicationCommandOptionBuilder[] ParseParameters(IEnumerable<ParameterInfo> parameters)
 		{
 			List<ApplicationCommandOptionBuilder> res = new();
@@ -600,6 +733,22 @@ namespace DSharpPlus.SlashCommands
 					.WithName(optionAttr?.Name)
 					.WithDescription(optionAttr?.Description)
 					.IsRequired(!parameterInfo.IsOptional);
+
+				if (optionAttr.ApplyLocalization)
+				{
+					foreach (Localization language in _config.LocalizationWhitelist)
+					{
+						string name =
+							_config.LocalizationProvider.GetLocalizedString(LocalizationContext.SlashCommandOptionName,
+								language, optionAttr.Name);
+						string description =
+							_config.LocalizationProvider.GetLocalizedString(LocalizationContext.SlashCommandOptionDescription,
+								language, optionAttr.Description);
+
+						if (name != null) option.WithNameLocalization(language, name);
+						if (description != null) option.WithDescriptionLocalization(language, description);
+					}
+				}
 
 				Type enumType = parameterInfo.ParameterType;
 				if (enumType.IsEnum)
@@ -734,6 +883,8 @@ namespace DSharpPlus.SlashCommands
 				"Slash command option types can be one of string, long, bool, double, DiscordUser, DiscordChannel, DiscordRole, SnowflakeObject, Enum");
 		}
 
+		#endregion
+
 		#region Events
 		
 		public event AsyncEventHandler<SlashCommandsExtension, SlashCommandErrorEventArgs> SlashCommandErrored
@@ -799,6 +950,22 @@ namespace DSharpPlus.SlashCommands
 		}
 
 		private AsyncEvent<SlashCommandsExtension, AutocompleteExecutedEventArgs> _autocompleteExecuted;
+		
+		public event AsyncEventHandler<SlashCommandsExtension, ApplicationCommandRegisterFailedEventArgs> ApplicationCommandRegisterFailed
+		{
+			add => _appComRegFailed.Register(value);
+			remove { _appComRegFailed.Unregister(value); }
+		}
+
+		private AsyncEvent<SlashCommandsExtension, ApplicationCommandRegisterFailedEventArgs> _appComRegFailed;
+
+		public event AsyncEventHandler<SlashCommandsExtension, ApplicationCommandRegisteredEventArgs> ApplicationCommandRegistered
+		{
+			add => _appComRegSuccess.Register(value);
+			remove => _appComRegSuccess.Unregister(value);
+		}
+
+		private AsyncEvent<SlashCommandsExtension, ApplicationCommandRegisteredEventArgs> _appComRegSuccess;
 
 		#endregion
 	}

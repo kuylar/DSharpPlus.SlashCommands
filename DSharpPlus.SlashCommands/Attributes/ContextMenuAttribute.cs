@@ -24,12 +24,18 @@ namespace DSharpPlus.SlashCommands
 		public bool DefaultPermission { get; internal set; }
 
 		/// <summary>
+		///     Gets whether this command should be localized using an ILocalizationProvider.
+		/// </summary>
+		public bool ApplyLocalization { get; internal set; }
+
+		/// <summary>
 		///     Marks this method as a context menu.
 		/// </summary>
 		/// <param name="type">The type of the context menu.</param>
 		/// <param name="name">The name of the context menu.</param>
 		/// <param name="defaultPermission">Sets whether the command should be enabled by default.</param>
-		public ContextMenuAttribute(ApplicationCommandType type, string name, bool defaultPermission = true)
+		/// <param name="applyLocalization">Sets whether the command should be localized using an ILocalizationProvider.</param>
+		public ContextMenuAttribute(ApplicationCommandType type, string name, bool defaultPermission = true, bool applyLocalization = false)
 		{
 			if (type == ApplicationCommandType.SlashCommand)
 				throw new ArgumentException("Context menus cannot be of type SlashCommand.");
@@ -37,6 +43,7 @@ namespace DSharpPlus.SlashCommands
 			Type = type;
 			Name = name;
 			DefaultPermission = defaultPermission;
+			ApplyLocalization = applyLocalization;
 		}
 	}
 }

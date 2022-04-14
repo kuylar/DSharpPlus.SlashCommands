@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using System.Runtime.Loader;
 using System.Threading.Tasks;
 using DSharpPlus.Exceptions;
 using Microsoft.Extensions.Logging;
@@ -22,18 +23,22 @@ namespace DSharpPlus.SlashCommands.TestBot
 
 			_client = new DiscordClient(new DiscordConfiguration
 			{
-				Token = token
+				Token = token,
 			});
 
-			SlashCommandsExtension slash = _client.UseSlashCommands();
+			SlashCommandsExtension slash = _client.UseSlashCommands(new SlashCommandsConfiguration
+			{
+				LocalizationProvider = new LocalizationProvider()
+			});
 
-			slash.RegisterCommands<SlashCommands>(917263628846108683);
-			slash.RegisterCommands<OneLevelGroup>(917263628846108683);
-			slash.RegisterCommands<TwoLevelGroup>(917263628846108683);
-			slash.RegisterCommands<WrappedGroup>(917263628846108683);
-			slash.RegisterCommands<PreExecutionChecks>(917263628846108683);
-			slash.RegisterCommands<ContextMenus>(917263628846108683);
-			slash.RegisterCommands<MixedGroups>(917263628846108683);
+			const ulong testGuildId = 917263628846108683;
+			slash.RegisterCommands<SlashCommands>(testGuildId);
+			slash.RegisterCommands<OneLevelGroup>(testGuildId);
+			slash.RegisterCommands<TwoLevelGroup>(testGuildId);
+			slash.RegisterCommands<WrappedGroup>(testGuildId);
+			slash.RegisterCommands<PreExecutionChecks>(testGuildId);
+			slash.RegisterCommands<ContextMenus>(testGuildId);
+			slash.RegisterCommands<MixedGroups>(testGuildId);
 			slash.RegisterCommands<GlobalCommands>();
 
 			slash.SlashCommandErrored += (sender, args) =>
@@ -51,6 +56,18 @@ namespace DSharpPlus.SlashCommands.TestBot
 					args.Context.CreateResponseAsync(string.Join("\n", fail.FailedChecks.Select(x => x.GetType().Name)));
 				else
 					args.Context.CreateResponseAsync(Formatter.Sanitize(args.Exception.ToString()));
+				return Task.CompletedTask;
+			};
+
+			slash.ApplicationCommandRegistered += (sender, args) =>
+			{
+				_client.Logger.LogInformation($"Registered {args.Commands.Count()} commands for {args.GuildId} ({(args.GuildId is null or 0 ? "global" : _client.Guilds[args.GuildId.Value].Name)})");
+				return Task.CompletedTask;
+			};
+
+			slash.ApplicationCommandRegisterFailed += (sender, args) =>
+			{
+				_client.Logger.LogError(args.Exception, $"Failed to register application commands for {args.GuildId} ({(args.GuildId is null or 0 ? "global" : _client.Guilds[args.GuildId.Value].Name)})");
 				return Task.CompletedTask;
 			};
 
