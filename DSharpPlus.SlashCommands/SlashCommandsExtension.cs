@@ -639,7 +639,12 @@ namespace DSharpPlus.SlashCommands
 					SlashCommandsExtension = this
 				};
 
-				MethodInfo method = _commands[e.Interaction.Data.Id].AutocompleteMethods[focusedOption.Name];
+				MethodInfo method = (e.Interaction.Data.Options?.First().Type switch
+				{
+				    ApplicationCommandOptionType.SubCommand => _commands[e.Interaction.Data.Id].AutocompleteMethods[$"{e.Interaction.Data.Options?.First().Name} {focusedOption.Name}"],
+				    ApplicationCommandOptionType.SubCommandGroup => _commands[e.Interaction.Data.Id].AutocompleteMethods[$"{e.Interaction.Data.Options?.First().Name} {e.Interaction.Data.Options?.First().Options?.First().Name} {focusedOption.Name}"],
+				    _ => _commands[e.Interaction.Data.Id].AutocompleteMethods[focusedOption.Name],
+				});
 				IAutocompleteProvider instance =
 					(IAutocompleteProvider)InstanceCreator.CreateInstance(method.DeclaringType, _config.Services);
 
