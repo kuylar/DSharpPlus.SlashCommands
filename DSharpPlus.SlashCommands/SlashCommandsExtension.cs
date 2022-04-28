@@ -62,10 +62,13 @@ namespace DSharpPlus.SlashCommands
 		/// <param name="guildId">The ID of the guild to add this command module to</param>
 		public void RegisterCommands(Type module, ulong? guildId = null)
 		{
+			BindingFlags bindingFlags = BindingFlags.Public | BindingFlags.NonPublic;
+
 			if (module.GetCustomAttribute<SlashCommandGroupAttribute>() is not null)
 			{
 				SlashCommandGroupAttribute gAttr = module.GetCustomAttribute<SlashCommandGroupAttribute>();
 				if (gAttr == null) return; // shut up rider
+
 				ApplicationCommandBuilder command = new ApplicationCommandBuilder(ApplicationCommandType.SlashCommand)
 					.WithName(gAttr.Name)
 					.WithDescription(gAttr.Description);
@@ -86,13 +89,13 @@ namespace DSharpPlus.SlashCommands
 					}
 				}
 
-				if (module.GetNestedTypes().Any(x => x.GetCustomAttribute<SlashCommandGroupAttribute>() is not null))
+				if (module.GetNestedTypes(bindingFlags).Any(x => x.GetCustomAttribute<SlashCommandGroupAttribute>() is not null))
 				{
 					// two-level groups
-					foreach (Type g in module.GetNestedTypes())
+					foreach (Type g in module.GetNestedTypes(bindingFlags))
 					{
 						SlashCommandGroupAttribute sGAttr = g.GetCustomAttribute<SlashCommandGroupAttribute>();
-						if (sGAttr == null) return; // shut up rider
+						if (sGAttr == null) continue; // shut up rider
 
 						ApplicationCommandOptionBuilder group =
 							new ApplicationCommandOptionBuilder(ApplicationCommandOptionType.SubCommandGroup)
@@ -119,8 +122,7 @@ namespace DSharpPlus.SlashCommands
 							.Where(x => x.GetCustomAttribute<SlashCommandAttribute>() != null))
 						{
 							SlashCommandAttribute attr = method.GetCustomAttribute<SlashCommandAttribute>();
-
-							if (attr == null) return; // shut up rider
+							if (attr == null) continue; // shut up rider
 
 							ApplicationCommandOptionBuilder subcommand =
 								new ApplicationCommandOptionBuilder(ApplicationCommandOptionType.SubCommand)
@@ -157,20 +159,21 @@ namespace DSharpPlus.SlashCommands
 					}
 				}
 
-				// one-level groups
+				// one-level commands
 				foreach (MethodInfo method in module.GetMethods()
 					.Where(x => x.GetCustomAttribute<SlashCommandAttribute>() != null)) 
 					command.AddOption(ParseSubcommandMethod(method));
 
 				RegisterCommand(command, guildId);
 			}
-			else if (module.GetNestedTypes().Any(x => x.GetCustomAttribute<SlashCommandGroupAttribute>() is not null))
+			else if (module.GetNestedTypes(bindingFlags).Any(x => x.GetCustomAttribute<SlashCommandGroupAttribute>() is not null))
 			{
-				foreach (Type groupType in module.GetNestedTypes()
+				foreach (Type groupType in module.GetNestedTypes(bindingFlags)
 					.Where(x => x.GetCustomAttribute<SlashCommandGroupAttribute>() is not null))
 				{
 					SlashCommandGroupAttribute gAttr = groupType.GetCustomAttribute<SlashCommandGroupAttribute>();
-					if (gAttr == null) return; // shut up rider
+					if (gAttr == null) continue; // shut up rider
+
 					ApplicationCommandBuilder command =
 						new ApplicationCommandBuilder(ApplicationCommandType.SlashCommand)
 							.WithName(gAttr.Name)
@@ -192,13 +195,13 @@ namespace DSharpPlus.SlashCommands
 						}
 					}
 
-					if (groupType.GetNestedTypes()
+					if (groupType.GetNestedTypes(bindingFlags)
 							.Any(x => x.GetCustomAttribute<SlashCommandGroupAttribute>() is not null))
 						// two-level groups
-						foreach (Type g in groupType.GetNestedTypes())
+						foreach (Type g in groupType.GetNestedTypes(bindingFlags))
 						{
 							SlashCommandGroupAttribute sGAttr = g.GetCustomAttribute<SlashCommandGroupAttribute>();
-							if (sGAttr == null) return; // shut up rider
+							if (sGAttr == null) continue; // shut up rider
 
 							ApplicationCommandOptionBuilder group =
 								new ApplicationCommandOptionBuilder(ApplicationCommandOptionType.SubCommandGroup)
@@ -235,7 +238,7 @@ namespace DSharpPlus.SlashCommands
 
 					RegisterCommand(command, guildId);
 				}
-			} 
+			}
 			else
 				// normal commands
 				foreach (MethodInfo method in module.GetMethods()
@@ -248,7 +251,7 @@ namespace DSharpPlus.SlashCommands
 			{
 				ContextMenuAttribute attr = method.GetCustomAttribute<ContextMenuAttribute>();
 
-				if (attr == null) return; // shut up rider
+				if (attr == null) continue; // shut up rider
 
 				ApplicationCommandBuilder command = new ApplicationCommandBuilder(attr.Type)
 					.WithName(attr.Name)
