@@ -19,7 +19,7 @@ namespace DSharpPlus.SlashCommands.Entities
 		public long? MaxValue { get; private set; }
 		public MethodInfo AutoCompleteMethod { get; private set; }
 		public MethodInfo Method { get; private set; }
-		
+
 		public Dictionary<Localization, string> NameLocalizations { get; private set; }
 		public Dictionary<Localization, string> DescriptionLocalizations { get; private set; }
 
@@ -227,6 +227,7 @@ namespace DSharpPlus.SlashCommands.Entities
 		public DiscordApplicationCommandOption Build() =>
 			new(Name, Description, Type, Required, Choices, Options?.Select(x => x.Build()), ChannelType,
 				AutoCompleteMethod != null, MinValue, MaxValue,
+				NameLocalizations.ToDictionary(x => x.Key.GetLanguageCode(), x => x.Value), 
 				DescriptionLocalizations.ToDictionary(x => x.Key.GetLanguageCode(), x => x.Value)
 			);
 	}

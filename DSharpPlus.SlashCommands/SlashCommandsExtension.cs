@@ -253,6 +253,7 @@ namespace DSharpPlus.SlashCommands
 				ApplicationCommandBuilder command = new ApplicationCommandBuilder(attr.Type)
 					.WithName(attr.Name)
 					.WithDefaultPermission(attr.DefaultPermission)
+					.WithDefaultPermissions(attr.DefaultPermissions)
 					.WithMethod(method);
 
 				if (attr.ApplyLocalization)
@@ -285,8 +286,10 @@ namespace DSharpPlus.SlashCommands
 				new ApplicationCommandBuilder(ApplicationCommandType.SlashCommand)
 					.WithName(attr.Name)
 					.WithDescription(attr.Description)
+					.WithMethod(method)
 					.WithDefaultPermission(attr.DefaultPermission)
-					.WithMethod(method);
+					.WithDefaultPermissions(attr.DefaultPermissions)
+					.WithGuildOnly(attr.GuildOnly);
 
 			if (attr.ApplyLocalization)
 			{

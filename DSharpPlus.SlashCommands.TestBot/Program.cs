@@ -24,6 +24,7 @@ namespace DSharpPlus.SlashCommands.TestBot
 			_client = new DiscordClient(new DiscordConfiguration
 			{
 				Token = token,
+				MinimumLogLevel = LogLevel.Trace
 			});
 
 			SlashCommandsExtension slash = _client.UseSlashCommands(new SlashCommandsConfiguration

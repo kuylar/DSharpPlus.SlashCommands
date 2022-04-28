@@ -141,8 +141,16 @@ namespace DSharpPlus.SlashCommands.TestBot
 
 		[SlashCommand("error", "Error")]
 		public async Task ErrorCommand(InteractionContext ctx) => throw new Exception("epic error");
-		
-[SlashCommand("localization-test", "Localization Test Command", applyLocalization: true)]
-public async Task LocalTestCommand(InteractionContext ctx) => await ctx.CreateResponseAsync($"Your localization value is: {LocalizationExtensions.GetLanguageFromCode(ctx.Interaction.Locale).GetNativeName()}");
+
+		[SlashCommand("adminOnlyCommand", "Only administrators can use this command", Permissions.Administrator)]
+		public async Task AdminCommand(InteractionContext ctx) => 
+			await ctx.CreateResponseAsync($"Congrats! Yo'ure an admin!!");
+
+		[SlashCommand("deleteMessages", "Delete some messages", Permissions.ManageMessages)]
+		public async Task DeleteMessagesCommand(InteractionContext ctx) => 
+			await ctx.CreateResponseAsync("delete them yourself");
+
+		//		[SlashCommand("localization-test", "Localization Test Command", applyLocalization: true)]
+//		public async Task LocalTestCommand(InteractionContext ctx) => await ctx.CreateResponseAsync($"Your localization value is: {LocalizationExtensions.GetLanguageFromCode(ctx.Interaction.Locale).GetNativeName()}");
 	}
 }

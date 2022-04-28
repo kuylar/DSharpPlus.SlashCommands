@@ -14,6 +14,8 @@ namespace DSharpPlus.SlashCommands.Entities
 		public ApplicationCommandType Type { get; private set; }
 		public List<ApplicationCommandOptionBuilder> Options { get; private set; }
 		public MethodInfo Method { get; private set; }
+		public bool GuildOnly { get; private set; }
+		public Permissions? DefaultPermissions { get; private set; }
 		
 		public Dictionary<Localization, string> NameLocalizations { get; private set; }
 		public Dictionary<Localization, string> DescriptionLocalizations { get; private set; }
@@ -55,6 +57,7 @@ namespace DSharpPlus.SlashCommands.Entities
 		/// </summary>
 		/// <param name="enabledByDefault">If this command should be enabled by default.</param>
 		/// <returns>The ApplicationCommandBuilder to be chained</returns>
+		[Obsolete("Deprecated by Discord. Use the new slash command permissions instead (WithDefaultPermissions())")]
 		public ApplicationCommandBuilder WithDefaultPermission(bool enabledByDefault)
 		{
 			DefaultPermission = enabledByDefault;
@@ -125,12 +128,36 @@ namespace DSharpPlus.SlashCommands.Entities
 		}
 
 		/// <summary>
+		/// Sets if this command should only be available in guilds
+		/// </summary>
+		/// <param name="guildOnly">If this command should only available in guilds</param>
+		/// <returns>The ApplicationCommandBuilder to be chained</returns>
+		public ApplicationCommandBuilder WithGuildOnly(bool guildOnly)
+		{
+			GuildOnly = guildOnly;
+			return this;
+		}
+
+		/// <summary>
+		/// Sets the default permissions of this command
+		/// </summary>
+		/// <param name="permissions">The default permissions for this command</param>
+		/// <returns>The ApplicationCommandBuilder to be chained</returns>
+		public ApplicationCommandBuilder WithDefaultPermissions(Permissions? permissions)
+		{
+			DefaultPermissions = permissions;
+			return this;
+		}
+
+
+		/// <summary>
 		/// Builds this ApplicationCommandBuilder
 		/// </summary>
 		/// <returns>A DiscordApplicationCommand to be sent to Discord</returns>
 		public DiscordApplicationCommand Build() =>
 			new(Name, Description, Options?.Select(x => x.Build()), DefaultPermission, Type,
 				NameLocalizations.ToDictionary(x => x.Key.GetLanguageCode(), x => x.Value),
-				DescriptionLocalizations.ToDictionary(x => x.Key.GetLanguageCode(), x => x.Value));
+				DescriptionLocalizations.ToDictionary(x => x.Key.GetLanguageCode(), x => x.Value),
+				!GuildOnly, DefaultPermissions);
 	}
 }

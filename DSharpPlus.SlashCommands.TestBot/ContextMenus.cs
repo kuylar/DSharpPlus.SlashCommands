@@ -28,5 +28,9 @@ namespace DSharpPlus.SlashCommands.TestBot
 		[ContextMenu(ApplicationCommandType.UserContextMenu, "User")]
 		public async Task UserCommand(ContextMenuContext ctx) =>
 			await ctx.CreateResponseAsync(ctx.TargetUser.Mention);
+		
+		[ContextMenu(ApplicationCommandType.UserContextMenu, "Ban User (permtest)", Permissions.BanMembers)]
+		public async Task BanCommand(ContextMenuContext ctx) =>
+			await ctx.CreateResponseAsync("nah :sleeping:");
 	}
 }
