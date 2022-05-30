@@ -1,4 +1,5 @@
 using System.Threading.Tasks;
+using DSharpPlus.SlashCommands.Attributes;
 
 namespace DSharpPlus.SlashCommands.TestBot
 {
@@ -8,6 +9,11 @@ namespace DSharpPlus.SlashCommands.TestBot
 		[Year]
 		public async Task YearCommand(InteractionContext context) =>
 			await context.CreateResponseAsync("oh wow its 2023?");
+
+		[SlashCommand("permissioncheck", "make sure to take my permissions of banning people")]
+		[SlashRequireBotPermissions(Permissions.BanMembers)]
+		public async Task BanPermCommand(InteractionContext context) =>
+			await context.CreateResponseAsync("poggers, i can!!!");
 		
 		[ContextMenu(ApplicationCommandType.MessageContextMenu, "Year Lock (2023 only)")]
 		[Year]
