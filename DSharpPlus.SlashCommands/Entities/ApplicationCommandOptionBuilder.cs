@@ -17,6 +17,8 @@ namespace DSharpPlus.SlashCommands.Entities
 		public ChannelType[] ChannelType { get; private set; }
 		public long? MinValue { get; private set; }
 		public long? MaxValue { get; private set; }
+		public int? MinLength { get; private set; }
+		public int? MaxLength { get; private set; }
 		public MethodInfo AutoCompleteMethod { get; private set; }
 		public MethodInfo Method { get; private set; }
 
@@ -108,6 +110,24 @@ namespace DSharpPlus.SlashCommands.Entities
 					"Only slash command options of type Channel can have channel types added in them");
 
 			ChannelType = channelTypes;
+			return this;
+		}
+
+		/// <summary>
+		/// Sets the minimum and the maximum value of this option
+		/// </summary>
+		/// <param name="min">Minimum value this option can get</param>
+		/// <param name="max">Maximum value this option can get</param>
+		/// <returns>ApplicationCommandOptionBuilder to be chained</returns>
+		public ApplicationCommandOptionBuilder WithMinMaxLength(int? min, int? max)
+		{
+			if (Type is not ApplicationCommandOptionType.String)
+				throw new InvalidOperationException(
+					"Only slash command options of type String can have minimum and maximum allowed length");
+
+			MinLength = min;
+			MaxLength = max;
+
 			return this;
 		}
 
@@ -228,7 +248,8 @@ namespace DSharpPlus.SlashCommands.Entities
 			new(Name, Description, Type, Required, Choices, Options?.Select(x => x.Build()), ChannelType,
 				AutoCompleteMethod != null, MinValue, MaxValue,
 				NameLocalizations.ToDictionary(x => x.Key.GetLanguageCode(), x => x.Value), 
-				DescriptionLocalizations.ToDictionary(x => x.Key.GetLanguageCode(), x => x.Value)
+				DescriptionLocalizations.ToDictionary(x => x.Key.GetLanguageCode(), x => x.Value),
+				MinLength, MaxLength
 			);
 	}
 }

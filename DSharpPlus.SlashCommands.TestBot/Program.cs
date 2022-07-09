@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Linq;
-using System.Runtime.Loader;
 using System.Threading.Tasks;
 using DSharpPlus.Exceptions;
 using Microsoft.Extensions.Logging;

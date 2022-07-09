@@ -805,6 +805,12 @@ namespace DSharpPlus.SlashCommands
 						case MaximumAttribute max:
 							option.WithMinMaxValue(option.MinValue, (long)max.Value);
 							break;
+						case MinimumLengthAttribute min:
+							option.WithMinMaxLength(min.Length, option.MaxLength);
+							break;
+						case MaximumLengthAttribute max:
+							option.WithMinMaxLength(option.MinLength, max.Length);
+							break;
 					}
 
 				res.Add(option);
